@@ -25,6 +25,15 @@ ProdTag is a Wails v2 desktop app with a Go backend/helper direction and a React
   - TypeScript config now uses modern Vite-friendly bundler module resolution.
   - `.DS_Store` files are ignored.
   - Manual `wails build` passed after the Codex-side packaging warning: bindings, frontend compile, application compile, packaging, self-signing, and `build/bin/ProdTag.app` creation all completed successfully.
+- Phase 2 MVP: Sound Library.
+  - Import button opens a Wails file picker and accepts MP3, WAV, M4A, OGG, and FLAC files.
+  - Sounds page supports Wails drag-and-drop import.
+  - Imported files are copied into the app data originals folder; selected source files are not mutated.
+  - Sound records now include id, name, original path, optional processed path/duration, created time, status, and optional error.
+  - Sounds page shows imported sound cards with status, format, path, imported time, preview, rename, and delete actions.
+  - Preview uses frontend audio playback from a backend-provided data URL, keeping helper/playback architecture for later phases.
+  - Delete removes the config record and safely removes the copied app-data file when it is inside the sound library folder.
+  - Import progress copy covers selecting, copying, reading metadata, added, and failed states.
 
 ## Current UX Direction
 
@@ -42,6 +51,7 @@ ProdTag is a Wails v2 desktop app with a Go backend/helper direction and a React
 
 ## Next Up
 
-- Phase 2: Sound Library.
-- Start with drag-and-drop import UI and the sound record flow, but avoid audio playback/helper work until later phases.
+- Phase 2.5: Normalization and richer metadata.
+- Add FFmpeg probing/normalization, duration extraction, processed WAV creation, and stronger import progress.
 - Packaging note: the earlier Codex-side macOS `UTType` linker/package warning is considered resolved for now because the user manually ran `wails build` successfully and produced `build/bin/ProdTag.app`.
+- Codex-side `wails build` may still fail at the final macOS app compile step in this sandbox even after frontend and Go tests pass; prefer user-local manual build as the packaging truth for now.

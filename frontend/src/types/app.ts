@@ -4,9 +4,12 @@ export type SoundRecord = {
   id: string;
   name: string;
   originalPath: string;
-  processedPath: string;
-  durationMs: number;
+  processedPath?: string | null;
+  durationMs?: number | null;
   format: string;
+  createdAt: string;
+  status: string;
+  error?: string | null;
 };
 
 export type PlaylistRecord = {

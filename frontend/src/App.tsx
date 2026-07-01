@@ -45,6 +45,13 @@ function App() {
     setDraftConfig((current) => current ? {...current, ...patch} : current);
   }
 
+  function handleConfigUpdated(nextSnapshot: ConfigSnapshot) {
+    setSnapshot(nextSnapshot);
+    setDraftConfig(nextSnapshot.config);
+    setLoadState('ready');
+    setMessage('Sound library updated');
+  }
+
   function saveConfig() {
     if (!draftConfig) {
       return;
@@ -85,7 +92,7 @@ function App() {
           {loadState === 'loading' && <LoadingState />}
           {loadState === 'error' && <ErrorPanel message={message} />}
           {config && activePage === 'dashboard' && <DashboardPage config={config} paths={paths} />}
-          {config && activePage === 'sounds' && <SoundsPage config={config} />}
+          {config && activePage === 'sounds' && <SoundsPage config={config} onConfigUpdated={handleConfigUpdated} />}
           {config && activePage === 'rules' && <RulesPage config={config} />}
           {config && activePage === 'hotkeys' && <HotkeysPage config={config} />}
           {config && activePage === 'integrations' && <IntegrationsPage config={config} />}

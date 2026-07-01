@@ -118,9 +118,12 @@ export namespace main {
 	    id: string;
 	    name: string;
 	    originalPath: string;
-	    processedPath: string;
-	    durationMs: number;
+	    processedPath?: string;
+	    durationMs?: number;
 	    format: string;
+	    createdAt: string;
+	    status: string;
+	    error?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SoundRecord(source);
@@ -134,6 +137,9 @@ export namespace main {
 	        this.processedPath = source["processedPath"];
 	        this.durationMs = source["durationMs"];
 	        this.format = source["format"];
+	        this.createdAt = source["createdAt"];
+	        this.status = source["status"];
+	        this.error = source["error"];
 	    }
 	}
 	export class AppConfig {
@@ -243,6 +249,20 @@ export namespace main {
 	
 	
 	
+	export class RenameSoundRequest {
+	    id: string;
+	    name: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RenameSoundRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	    }
+	}
 	
 	
 

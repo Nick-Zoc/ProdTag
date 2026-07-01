@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -58,6 +59,101 @@ func TestSaveConfigPersistsConfig(t *testing.T) {
 	}
 	if !reloaded.Config.Muted {
 		t.Fatal("expected muted to persist as true")
+	}
+}
+
+func TestImportSoundPathsCopiesFileAndPersistsRecord(t *testing.T) {
+	isolateUserDirs(t)
+
+	sourcePath := filepath.Join(t.TempDir(), "Producer Tag.MP3")
+	if err := os.WriteFile(sourcePath, []byte("fake audio"), 0o644); err != nil {
+		t.Fatalf("write source sound: %v", err)
+	}
+
+	snapshot, err := importSoundPaths([]string{sourcePath})
+	if err != nil {
+		t.Fatalf("importSoundPaths() error = %v", err)
+	}
+
+	if len(snapshot.Config.Sounds) != 1 {
+		t.Fatalf("expected 1 sound, got %d", len(snapshot.Config.Sounds))
+	}
+
+	sound := snapshot.Config.Sounds[0]
+	if sound.ID == "" {
+		t.Fatal("expected sound id")
+	}
+	if sound.Name != "Producer Tag" {
+		t.Fatalf("expected sound name Producer Tag, got %q", sound.Name)
+	}
+	if sound.Status != "imported" {
+		t.Fatalf("expected imported status, got %q", sound.Status)
+	}
+	if sound.CreatedAt == "" {
+		t.Fatal("expected createdAt")
+	}
+	if sound.ProcessedPath != nil {
+		t.Fatal("expected processedPath to be nil before normalization")
+	}
+	if sound.DurationMs != nil {
+		t.Fatal("expected durationMs to be nil before metadata probing")
+	}
+	if !strings.HasPrefix(sound.OriginalPath, snapshot.Paths.OriginalSoundsDir) {
+		t.Fatalf("expected copied file in originals dir, got %s", sound.OriginalPath)
+	}
+	if _, err := os.Stat(sound.OriginalPath); err != nil {
+		t.Fatalf("expected copied sound to exist: %v", err)
+	}
+	if _, err := os.Stat(sourcePath); err != nil {
+		t.Fatalf("expected original selected file to remain untouched: %v", err)
+	}
+}
+
+func TestRenameAndDeleteSound(t *testing.T) {
+	isolateUserDirs(t)
+
+	sourcePath := filepath.Join(t.TempDir(), "tag.wav")
+	if err := os.WriteFile(sourcePath, []byte("fake audio"), 0o644); err != nil {
+		t.Fatalf("write source sound: %v", err)
+	}
+
+	snapshot, err := importSoundPaths([]string{sourcePath})
+	if err != nil {
+		t.Fatalf("importSoundPaths() error = %v", err)
+	}
+
+	app := NewApp()
+	sound := snapshot.Config.Sounds[0]
+	renamed, err := app.RenameSound(RenameSoundRequest{ID: sound.ID, Name: "Build Drop"})
+	if err != nil {
+		t.Fatalf("RenameSound() error = %v", err)
+	}
+	if renamed.Config.Sounds[0].Name != "Build Drop" {
+		t.Fatalf("expected renamed sound, got %q", renamed.Config.Sounds[0].Name)
+	}
+
+	deleted, err := app.DeleteSound(sound.ID)
+	if err != nil {
+		t.Fatalf("DeleteSound() error = %v", err)
+	}
+	if len(deleted.Config.Sounds) != 0 {
+		t.Fatalf("expected no sounds after delete, got %d", len(deleted.Config.Sounds))
+	}
+	if _, err := os.Stat(sound.OriginalPath); !os.IsNotExist(err) {
+		t.Fatalf("expected copied sound file to be removed, stat err = %v", err)
+	}
+}
+
+func TestImportSoundPathsRejectsUnsupportedFile(t *testing.T) {
+	isolateUserDirs(t)
+
+	sourcePath := filepath.Join(t.TempDir(), "notes.txt")
+	if err := os.WriteFile(sourcePath, []byte("not audio"), 0o644); err != nil {
+		t.Fatalf("write source file: %v", err)
+	}
+
+	if _, err := importSoundPaths([]string{sourcePath}); err == nil {
+		t.Fatal("expected unsupported file error")
 	}
 }
 

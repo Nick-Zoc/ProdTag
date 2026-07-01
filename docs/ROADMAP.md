@@ -33,21 +33,29 @@ Notes:
 
 ## Phase 2 — Sound Library
 
+Status: MVP complete; normalization/playlists remain for follow-up.
+
 Goal: Let users import, preview, and manage sounds.
 
 Tasks:
 
-- [ ] Add drag-and-drop sound import.
-- [ ] Store original files in app data.
+- [x] Add drag-and-drop sound import.
+- [x] Store original files in app data.
 - [ ] Use FFmpeg to normalize and convert imported audio to internal WAV.
-- [ ] Show import progress steps in the UI.
-- [ ] Add sound list with name, duration, format, and preview button.
-- [ ] Add delete/rename sound.
+- [x] Show import progress steps in the UI.
+- [x] Add sound list with name, duration, format, and preview button.
+- [x] Add delete/rename sound.
 - [ ] Add playlists/groups.
 
 Done when:
 
 - [ ] User can import a sound, see progress, preview it, and assign it to a group.
+
+Notes:
+
+- Phase 2 MVP intentionally keeps `processedPath` and `durationMs` empty until FFmpeg probing/normalization.
+- Preview currently uses UI-side audio from a backend data URL, not the future background helper.
+- Playlist/group assignment remains open.
 
 ## Phase 3 — Helper + Playback
 

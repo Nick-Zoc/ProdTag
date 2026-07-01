@@ -46,12 +46,15 @@ type AppConfig struct {
 }
 
 type SoundRecord struct {
-	ID            string `json:"id"`
-	Name          string `json:"name"`
-	OriginalPath  string `json:"originalPath"`
-	ProcessedPath string `json:"processedPath"`
-	DurationMs    int64  `json:"durationMs"`
-	Format        string `json:"format"`
+	ID            string  `json:"id"`
+	Name          string  `json:"name"`
+	OriginalPath  string  `json:"originalPath"`
+	ProcessedPath *string `json:"processedPath"`
+	DurationMs    *int64  `json:"durationMs"`
+	Format        string  `json:"format"`
+	CreatedAt     string  `json:"createdAt"`
+	Status        string  `json:"status"`
+	Error         *string `json:"error"`
 }
 
 type PlaylistRecord struct {
@@ -251,14 +254,22 @@ func normalizeConfig(config AppConfig) AppConfig {
 	if config.Sounds == nil {
 		config.Sounds = []SoundRecord{}
 	}
+	if config.UpdatedAt == "" {
+		config.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	}
+	for index := range config.Sounds {
+		if config.Sounds[index].Status == "" {
+			config.Sounds[index].Status = "imported"
+		}
+		if config.Sounds[index].CreatedAt == "" {
+			config.Sounds[index].CreatedAt = config.UpdatedAt
+		}
+	}
 	if config.Playlists == nil {
 		config.Playlists = []PlaylistRecord{}
 	}
 	if config.Rules == nil {
 		config.Rules = []RuleRecord{}
-	}
-	if config.UpdatedAt == "" {
-		config.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	}
 
 	return config
