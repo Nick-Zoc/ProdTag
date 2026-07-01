@@ -4,6 +4,8 @@ import {main} from '../models';
 
 export function DeleteSound(arg1:string):Promise<main.ConfigSnapshot>;
 
+export function DeleteSounds(arg1:Array<string>):Promise<main.ConfigSnapshot>;
+
 export function GetSoundPreviewDataURL(arg1:string):Promise<string>;
 
 export function ImportSoundPaths(arg1:Array<string>):Promise<main.ConfigSnapshot>;

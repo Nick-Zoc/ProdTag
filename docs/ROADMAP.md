@@ -33,7 +33,7 @@ Notes:
 
 ## Phase 2 — Sound Library
 
-Status: MVP complete; normalization/playlists remain for follow-up.
+Status: MVP complete with Phase 2.1 QA fixes; normalization/playlists remain for follow-up.
 
 Goal: Let users import, preview, and manage sounds.
 
@@ -56,6 +56,7 @@ Notes:
 - Phase 2 MVP intentionally keeps `processedPath` and `durationMs` empty until FFmpeg probing/normalization.
 - Preview currently uses UI-side audio from a backend data URL, not the future background helper.
 - Playlist/group assignment remains open.
+- Phase 2.1 enabled Wails file drop, added active drop feedback, custom delete confirmation, single/bulk delete, and toast/status feedback.
 
 ## Phase 3 — Helper + Playback
 

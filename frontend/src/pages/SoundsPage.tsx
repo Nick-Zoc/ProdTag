@@ -1,60 +1,80 @@
-import {useEffect, useRef, useState} from 'react';
-import {DeleteSound, GetSoundPreviewDataURL, ImportSoundPaths, RenameSound, SelectSoundFiles} from '../../wailsjs/go/main/App';
+import {useEffect, useMemo, useRef, useState} from 'react';
+import {
+  DeleteSound,
+  DeleteSounds,
+  GetSoundPreviewDataURL,
+  ImportSoundPaths,
+  RenameSound,
+  SelectSoundFiles,
+} from '../../wailsjs/go/main/App';
 import {OnFileDrop, OnFileDropOff} from '../../wailsjs/runtime/runtime';
 import {Badge} from '../components/Badge';
 import {Button} from '../components/Button';
 import {Card} from '../components/Card';
+import {ConfirmDialog} from '../components/ConfirmDialog';
 import {EmptyState} from '../components/EmptyState';
+import {Toast, ToastState} from '../components/Toast';
 import {AppConfig, ConfigSnapshot, SoundRecord} from '../types/app';
-
-type ImportProgressTone = 'neutral' | 'green' | 'amber' | 'rose';
-
-type ImportProgress = {
-  message: string;
-  tone: ImportProgressTone;
-};
+import {classNames} from '../utils/classNames';
 
 type SoundsPageProps = {
   config: AppConfig;
   onConfigUpdated: (snapshot: ConfigSnapshot) => void;
 };
 
+type ConfirmState =
+  | {kind: 'single'; sound: SoundRecord}
+  | {kind: 'bulk'; ids: string[]}
+  | null;
+
 export function SoundsPage({config, onConfigUpdated}: SoundsPageProps) {
-  const [progress, setProgress] = useState<ImportProgress | null>(null);
+  const [toast, setToast] = useState<ToastState | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isDropActive, setIsDropActive] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [confirmState, setConfirmState] = useState<ConfirmState>(null);
+  const dragDepth = useRef(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const selectedCount = selectedIds.length;
+  const allVisibleSelected = useMemo(() => {
+    return config.sounds.length > 0 && selectedIds.length === config.sounds.length;
+  }, [config.sounds.length, selectedIds.length]);
 
   useEffect(() => {
     OnFileDrop((_x, _y, paths) => {
+      dragDepth.current = 0;
+      setIsDropActive(false);
       if (paths.length > 0) {
         void importPaths(paths);
       }
-    }, false);
+    }, true);
 
     return () => {
       OnFileDropOff();
     };
   }, []);
 
+  useEffect(() => {
+    const soundIds = new Set(config.sounds.map((sound) => sound.id));
+    setSelectedIds((current) => current.filter((id) => soundIds.has(id)));
+  }, [config.sounds]);
+
   async function importFromPicker() {
     setIsImporting(true);
-    setProgress({message: 'Selecting file...', tone: 'neutral'});
+    setToast({message: 'Selecting file...', tone: 'neutral'});
     try {
       const paths = await SelectSoundFiles();
       if (paths.length === 0) {
-        setProgress(null);
+        setToast(null);
         return;
       }
-      setProgress({message: 'Copying to library...', tone: 'amber'});
-      const snapshot = await ImportSoundPaths(paths);
-      setProgress({message: 'Reading metadata...', tone: 'amber'});
-      onConfigUpdated(snapshot as ConfigSnapshot);
-      setProgress({message: 'Added to library', tone: 'green'});
+      await importPaths(paths);
     } catch (error) {
-      setProgress({message: failureMessage(error), tone: 'rose'});
+      setToast({message: failureMessage(error), tone: 'rose'});
     } finally {
       setIsImporting(false);
     }
@@ -62,17 +82,44 @@ export function SoundsPage({config, onConfigUpdated}: SoundsPageProps) {
 
   async function importPaths(paths: string[]) {
     setIsImporting(true);
-    setProgress({message: 'Copying to library...', tone: 'amber'});
+    setToast({message: 'Copying to library...', tone: 'amber'});
     try {
       const snapshot = await ImportSoundPaths(paths);
-      setProgress({message: 'Reading metadata...', tone: 'amber'});
+      setToast({message: 'Reading metadata...', tone: 'amber'});
       onConfigUpdated(snapshot as ConfigSnapshot);
-      setProgress({message: 'Added to library', tone: 'green'});
+      setToast({message: `${paths.length} sound${paths.length === 1 ? '' : 's'} added to library`, tone: 'green'});
     } catch (error) {
-      setProgress({message: failureMessage(error), tone: 'rose'});
+      setToast({message: failureMessage(error), tone: 'rose'});
     } finally {
       setIsImporting(false);
     }
+  }
+
+  function handleDragEnter(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    dragDepth.current += 1;
+    setIsDropActive(true);
+  }
+
+  function handleDragOver(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    setIsDropActive(true);
+  }
+
+  function handleDragLeave(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) {
+      setIsDropActive(false);
+    }
+  }
+
+  function handleDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    dragDepth.current = 0;
+    setIsDropActive(false);
+    setToast({message: 'Drop received. Preparing import...', tone: 'neutral'});
   }
 
   function startRename(sound: SoundRecord) {
@@ -83,7 +130,7 @@ export function SoundsPage({config, onConfigUpdated}: SoundsPageProps) {
   async function saveRename(sound: SoundRecord) {
     const name = editingName.trim();
     if (!name) {
-      setProgress({message: 'Sound name cannot be empty', tone: 'rose'});
+      setToast({message: 'Sound name cannot be empty', tone: 'rose'});
       return;
     }
 
@@ -92,24 +139,49 @@ export function SoundsPage({config, onConfigUpdated}: SoundsPageProps) {
       onConfigUpdated(snapshot as ConfigSnapshot);
       setEditingId(null);
       setEditingName('');
-      setProgress({message: 'Sound renamed', tone: 'green'});
+      setToast({message: 'Sound renamed', tone: 'green'});
     } catch (error) {
-      setProgress({message: failureMessage(error), tone: 'rose'});
+      setToast({message: failureMessage(error), tone: 'rose'});
     }
   }
 
-  async function deleteSound(sound: SoundRecord) {
-    if (!window.confirm(`Delete "${sound.name}" from the library?`)) {
+  function requestDelete(sound: SoundRecord) {
+    setConfirmState({kind: 'single', sound});
+  }
+
+  function requestBulkDelete() {
+    if (selectedIds.length > 0) {
+      setConfirmState({kind: 'bulk', ids: selectedIds});
+    }
+  }
+
+  async function confirmDelete() {
+    if (!confirmState) {
       return;
     }
 
     try {
-      stopPreview();
-      const snapshot = await DeleteSound(sound.id);
-      onConfigUpdated(snapshot as ConfigSnapshot);
-      setProgress({message: 'Sound deleted', tone: 'green'});
+      if (confirmState.kind === 'single') {
+        if (playingId === confirmState.sound.id) {
+          stopPreview();
+        }
+        const snapshot = await DeleteSound(confirmState.sound.id);
+        onConfigUpdated(snapshot as ConfigSnapshot);
+        setSelectedIds((current) => current.filter((id) => id !== confirmState.sound.id));
+        setToast({message: 'Sound deleted', tone: 'green'});
+      } else {
+        if (playingId && confirmState.ids.includes(playingId)) {
+          stopPreview();
+        }
+        const snapshot = await DeleteSounds(confirmState.ids);
+        onConfigUpdated(snapshot as ConfigSnapshot);
+        setSelectedIds([]);
+        setToast({message: `${confirmState.ids.length} sound${confirmState.ids.length === 1 ? '' : 's'} deleted`, tone: 'green'});
+      }
     } catch (error) {
-      setProgress({message: failureMessage(error), tone: 'rose'});
+      setToast({message: failureMessage(error), tone: 'rose'});
+    } finally {
+      setConfirmState(null);
     }
   }
 
@@ -124,7 +196,7 @@ export function SoundsPage({config, onConfigUpdated}: SoundsPageProps) {
       await audio.play();
     } catch (error) {
       setPlayingId(null);
-      setProgress({message: failureMessage(error), tone: 'rose'});
+      setToast({message: failureMessage(error), tone: 'rose'});
     }
   }
 
@@ -135,6 +207,19 @@ export function SoundsPage({config, onConfigUpdated}: SoundsPageProps) {
       audioRef.current = null;
     }
     setPlayingId(null);
+  }
+
+  function toggleSelected(id: string, checked: boolean) {
+    setSelectedIds((current) => {
+      if (checked) {
+        return current.includes(id) ? current : [...current, id];
+      }
+      return current.filter((currentId) => currentId !== id);
+    });
+  }
+
+  function toggleAllSelected(checked: boolean) {
+    setSelectedIds(checked ? config.sounds.map((sound) => sound.id) : []);
   }
 
   return (
@@ -152,17 +237,20 @@ export function SoundsPage({config, onConfigUpdated}: SoundsPageProps) {
           </Button>
         </div>
 
-        <div className="drop-zone mt-5">
-          <div className="text-sm font-semibold text-neutral-800">Drag audio files here</div>
+        <div
+          className={classNames('drop-zone mt-5', isDropActive && 'drop-zone-active')}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          <div className="text-sm font-semibold text-neutral-800">
+            {isDropActive ? 'Drop to copy into ProdTag' : 'Drag audio files here'}
+          </div>
           <p className="mt-1 text-sm text-neutral-500">MP3, WAV, M4A, OGG, and FLAC are accepted.</p>
         </div>
 
-        {progress && (
-          <div className="mt-4 flex items-center justify-between gap-3 rounded-lg bg-neutral-50 px-3 py-2">
-            <span className="text-sm text-neutral-700">{progress.message}</span>
-            <Badge tone={progress.tone}>{progress.tone === 'rose' ? 'Failed' : 'Import'}</Badge>
-          </div>
-        )}
+        {toast && <Toast toast={toast} />}
       </Card>
 
       {config.sounds.length === 0 ? (
@@ -174,23 +262,52 @@ export function SoundsPage({config, onConfigUpdated}: SoundsPageProps) {
         </Card>
       ) : (
         <section className="grid gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-neutral-600">
+              <input
+                checked={allVisibleSelected}
+                className="h-4 w-4 accent-neutral-950"
+                onChange={(event) => toggleAllSelected(event.target.checked)}
+                type="checkbox"
+              />
+              Select all
+            </label>
+            {selectedCount > 0 && (
+              <Button onClick={requestBulkDelete} variant="danger">
+                Delete selected ({selectedCount})
+              </Button>
+            )}
+          </div>
+
           {config.sounds.map((sound) => (
             <SoundCard
               editingId={editingId}
               editingName={editingName}
+              isSelected={selectedIds.includes(sound.id)}
               key={sound.id}
               playingId={playingId}
               sound={sound}
               onCancelRename={() => setEditingId(null)}
-              onDelete={() => deleteSound(sound)}
+              onDelete={() => requestDelete(sound)}
               onEditNameChange={setEditingName}
               onPlay={() => playPreview(sound)}
               onRename={() => startRename(sound)}
               onSaveRename={() => saveRename(sound)}
+              onSelectedChange={(checked) => toggleSelected(sound.id, checked)}
               onStop={stopPreview}
             />
           ))}
         </section>
+      )}
+
+      {confirmState && (
+        <ConfirmDialog
+          body={confirmationBody(confirmState)}
+          confirmLabel={confirmState.kind === 'bulk' ? 'Delete selected' : 'Delete sound'}
+          onCancel={() => setConfirmState(null)}
+          onConfirm={confirmDelete}
+          title="Delete from library?"
+        />
       )}
     </div>
   );
@@ -201,6 +318,8 @@ type SoundCardProps = {
   playingId: string | null;
   editingId: string | null;
   editingName: string;
+  isSelected: boolean;
+  onSelectedChange: (checked: boolean) => void;
   onPlay: () => void;
   onStop: () => void;
   onRename: () => void;
@@ -215,6 +334,8 @@ function SoundCard({
   playingId,
   editingId,
   editingName,
+  isSelected,
+  onSelectedChange,
   onPlay,
   onStop,
   onRename,
@@ -229,26 +350,34 @@ function SoundCard({
   return (
     <Card className="p-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          {isEditing ? (
-            <input
-              autoFocus
-              className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-neutral-950"
-              onChange={(event) => onEditNameChange(event.target.value)}
-              value={editingName}
-            />
-          ) : (
-            <h3 className="truncate text-base font-semibold">{sound.name}</h3>
-          )}
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Badge tone={statusTone(sound.status)}>{sound.status}</Badge>
-            <span className="rounded-full bg-neutral-100 px-3 py-1 text-sm font-semibold uppercase text-neutral-600">
-              {sound.format || fileExtension(sound.originalPath)}
-            </span>
-            <span className="text-sm text-neutral-500">Imported {formatDate(sound.createdAt)}</span>
+        <div className="flex min-w-0 flex-1 gap-3">
+          <input
+            checked={isSelected}
+            className="mt-1 h-4 w-4 shrink-0 accent-neutral-950"
+            onChange={(event) => onSelectedChange(event.target.checked)}
+            type="checkbox"
+          />
+          <div className="min-w-0 flex-1">
+            {isEditing ? (
+              <input
+                autoFocus
+                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-neutral-950"
+                onChange={(event) => onEditNameChange(event.target.value)}
+                value={editingName}
+              />
+            ) : (
+              <h3 className="truncate text-base font-semibold">{sound.name}</h3>
+            )}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Badge tone={statusTone(sound.status)}>{sound.status}</Badge>
+              <span className="rounded-full bg-neutral-100 px-3 py-1 text-sm font-semibold uppercase text-neutral-600">
+                {sound.format || fileExtension(sound.originalPath)}
+              </span>
+              <span className="text-sm text-neutral-500">Imported {formatDate(sound.createdAt)}</span>
+            </div>
+            <p className="mt-3 break-all font-mono text-xs leading-5 text-neutral-500">{sound.originalPath}</p>
+            {sound.error && <p className="mt-2 text-sm text-rose-700">{sound.error}</p>}
           </div>
-          <p className="mt-3 break-all font-mono text-xs leading-5 text-neutral-500">{sound.originalPath}</p>
-          {sound.error && <p className="mt-2 text-sm text-rose-700">{sound.error}</p>}
         </div>
 
         <div className="flex flex-wrap justify-end gap-2">
@@ -257,7 +386,7 @@ function SoundCard({
               Stop
             </Button>
           ) : (
-            <Button onClick={onPlay} variant="secondary">
+            <Button onClick={onPlay} variant="success">
               Preview
             </Button>
           )}
@@ -273,13 +402,23 @@ function SoundCard({
               Rename
             </Button>
           )}
-          <Button onClick={onDelete} variant="ghost">
+          <Button onClick={onDelete} variant="danger">
             Delete
           </Button>
         </div>
       </div>
     </Card>
   );
+}
+
+function confirmationBody(confirmState: ConfirmState) {
+  if (!confirmState) {
+    return '';
+  }
+  if (confirmState.kind === 'single') {
+    return `This removes "${confirmState.sound.name}" from ProdTag and deletes its copied library file. Your original selected file is not touched.`;
+  }
+  return `This removes ${confirmState.ids.length} selected sound${confirmState.ids.length === 1 ? '' : 's'} from ProdTag and deletes their copied library files. Original selected files are not touched.`;
 }
 
 function statusTone(status: SoundRecord['status']) {

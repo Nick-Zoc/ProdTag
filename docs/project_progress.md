@@ -34,6 +34,14 @@ ProdTag is a Wails v2 desktop app with a Go backend/helper direction and a React
   - Preview uses frontend audio playback from a backend-provided data URL, keeping helper/playback architecture for later phases.
   - Delete removes the config record and safely removes the copied app-data file when it is inside the sound library folder.
   - Import progress copy covers selecting, copying, reading metadata, added, and failed states.
+- Phase 2.1: Sound Library QA fixes and UX polish.
+  - Wails file-drop support is enabled in the app options and the drop zone is marked as a Wails drop target.
+  - Drop zone now has visible active feedback during drag enter/over.
+  - Delete now uses a custom confirmation dialog instead of native browser confirm.
+  - Single and bulk delete both stop preview when needed, remove records, remove copied app-data files safely, and refresh the shared config snapshot.
+  - Sound cards now support checkbox selection and a clean "Delete selected" action.
+  - A lightweight reusable toast/status component shows import, rename, and delete success/failure.
+  - Sound action buttons now have clearer Preview, Stop, Rename, and subtle danger Delete hierarchy.
 
 ## Current UX Direction
 

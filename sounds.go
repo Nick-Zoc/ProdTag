@@ -89,27 +89,47 @@ func (a *App) RenameSound(request RenameSoundRequest) (ConfigSnapshot, error) {
 }
 
 func (a *App) DeleteSound(id string) (ConfigSnapshot, error) {
+	return a.DeleteSounds([]string{id})
+}
+
+func (a *App) DeleteSounds(ids []string) (ConfigSnapshot, error) {
 	snapshot, err := LoadConfigSnapshot()
 	if err != nil {
 		return ConfigSnapshot{}, err
 	}
+	if len(ids) == 0 {
+		return snapshot, nil
+	}
+
+	deleteIDs := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			deleteIDs[id] = true
+		}
+	}
+	if len(deleteIDs) == 0 {
+		return snapshot, nil
+	}
 
 	nextSounds := make([]SoundRecord, 0, len(snapshot.Config.Sounds))
-	var removed *SoundRecord
+	removed := make([]SoundRecord, 0, len(deleteIDs))
 	for index := range snapshot.Config.Sounds {
 		sound := snapshot.Config.Sounds[index]
-		if sound.ID == id {
-			removed = &sound
+		if deleteIDs[sound.ID] {
+			removed = append(removed, sound)
 			continue
 		}
 		nextSounds = append(nextSounds, sound)
 	}
-	if removed == nil {
-		return ConfigSnapshot{}, fmt.Errorf("sound %s not found", id)
+	if len(removed) != len(deleteIDs) {
+		return ConfigSnapshot{}, errors.New("one or more selected sounds were not found")
 	}
 
-	if err := removeLibraryFile(removed.OriginalPath, snapshot.Paths.OriginalSoundsDir); err != nil {
-		return ConfigSnapshot{}, err
+	for _, sound := range removed {
+		if err := removeLibraryFile(sound.OriginalPath, snapshot.Paths.OriginalSoundsDir); err != nil {
+			return ConfigSnapshot{}, err
+		}
 	}
 
 	snapshot.Config.Sounds = nextSounds

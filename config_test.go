@@ -144,6 +144,41 @@ func TestRenameAndDeleteSound(t *testing.T) {
 	}
 }
 
+func TestDeleteSoundsRemovesMultipleRecordsAndFiles(t *testing.T) {
+	isolateUserDirs(t)
+
+	dir := t.TempDir()
+	firstPath := filepath.Join(dir, "first.mp3")
+	secondPath := filepath.Join(dir, "second.ogg")
+	if err := os.WriteFile(firstPath, []byte("first"), 0o644); err != nil {
+		t.Fatalf("write first sound: %v", err)
+	}
+	if err := os.WriteFile(secondPath, []byte("second"), 0o644); err != nil {
+		t.Fatalf("write second sound: %v", err)
+	}
+
+	snapshot, err := importSoundPaths([]string{firstPath, secondPath})
+	if err != nil {
+		t.Fatalf("importSoundPaths() error = %v", err)
+	}
+
+	app := NewApp()
+	first := snapshot.Config.Sounds[0]
+	second := snapshot.Config.Sounds[1]
+	deleted, err := app.DeleteSounds([]string{first.ID, second.ID})
+	if err != nil {
+		t.Fatalf("DeleteSounds() error = %v", err)
+	}
+	if len(deleted.Config.Sounds) != 0 {
+		t.Fatalf("expected no sounds after bulk delete, got %d", len(deleted.Config.Sounds))
+	}
+	for _, path := range []string{first.OriginalPath, second.OriginalPath} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("expected copied sound file to be removed, stat err = %v", err)
+		}
+	}
+}
+
 func TestImportSoundPathsRejectsUnsupportedFile(t *testing.T) {
 	isolateUserDirs(t)
 

@@ -6,6 +6,10 @@ export function DeleteSound(arg1) {
   return window['go']['main']['App']['DeleteSound'](arg1);
 }
 
+export function DeleteSounds(arg1) {
+  return window['go']['main']['App']['DeleteSounds'](arg1);
+}
+
 export function GetSoundPreviewDataURL(arg1) {
   return window['go']['main']['App']['GetSoundPreviewDataURL'](arg1);
 }

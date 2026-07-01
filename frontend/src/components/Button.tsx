@@ -1,12 +1,14 @@
 import type {ButtonHTMLAttributes} from 'react';
 import {classNames} from '../utils/classNames';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 
 const variantClass: Record<ButtonVariant, string> = {
   primary: 'button-primary',
   secondary: 'button-secondary',
   ghost: 'button-ghost',
+  danger: 'button-danger',
+  success: 'button-success',
 };
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
