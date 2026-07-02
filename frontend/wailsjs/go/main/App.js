@@ -6,6 +6,10 @@ export function CheckAudioTools() {
   return window['go']['main']['App']['CheckAudioTools']();
 }
 
+export function ClearRecentEvents() {
+  return window['go']['main']['App']['ClearRecentEvents']();
+}
+
 export function CreateRule(arg1) {
   return window['go']['main']['App']['CreateRule'](arg1);
 }
@@ -22,8 +26,20 @@ export function DeleteSounds(arg1) {
   return window['go']['main']['App']['DeleteSounds'](arg1);
 }
 
+export function EvaluateEvent(arg1) {
+  return window['go']['main']['App']['EvaluateEvent'](arg1);
+}
+
+export function GetPlaybackStatus() {
+  return window['go']['main']['App']['GetPlaybackStatus']();
+}
+
 export function GetSoundPreviewDataURL(arg1) {
   return window['go']['main']['App']['GetSoundPreviewDataURL'](arg1);
+}
+
+export function HandleTerminalEvent(arg1) {
+  return window['go']['main']['App']['HandleTerminalEvent'](arg1);
 }
 
 export function ImportSoundPaths(arg1) {
@@ -32,6 +48,10 @@ export function ImportSoundPaths(arg1) {
 
 export function ImportSoundWithPicker() {
   return window['go']['main']['App']['ImportSoundWithPicker']();
+}
+
+export function ListRecentEvents() {
+  return window['go']['main']['App']['ListRecentEvents']();
 }
 
 export function ListRules() {
@@ -64,6 +84,14 @@ export function SaveConfig(arg1) {
 
 export function SelectSoundFiles() {
   return window['go']['main']['App']['SelectSoundFiles']();
+}
+
+export function SimulateEvent(arg1) {
+  return window['go']['main']['App']['SimulateEvent'](arg1);
+}
+
+export function StopPlayback() {
+  return window['go']['main']['App']['StopPlayback']();
 }
 
 export function TestRuleSound(arg1) {

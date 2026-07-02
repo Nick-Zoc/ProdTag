@@ -363,6 +363,268 @@ func TestRuleSurvivesDeletedSoundReference(t *testing.T) {
 	}
 }
 
+func TestEvaluateEventMatchesEventType(t *testing.T) {
+	sound := testSoundRecord("sound-1", "/tmp/original.wav", nil)
+	config := AppConfig{
+		Sounds: []SoundRecord{sound},
+		Rules: []RuleRecord{
+			testRuleRecord("rule-1", "test_success", sound.ID, "", "", nil, true),
+		},
+	}
+
+	result := evaluateEvent(config, TerminalEvent{EventType: "test_success"})
+	if !result.Matched || result.Rule == nil || result.Rule.ID != "rule-1" {
+		t.Fatalf("expected rule-1 match, got %+v", result)
+	}
+
+	result = evaluateEvent(config, TerminalEvent{EventType: "test_failure"})
+	if result.Matched {
+		t.Fatalf("expected no match, got %+v", result)
+	}
+}
+
+func TestEvaluateEventCommandMatchModes(t *testing.T) {
+	sound := testSoundRecord("sound-1", "/tmp/original.wav", nil)
+	tests := []struct {
+		name    string
+		mode    string
+		pattern string
+		command string
+		matched bool
+	}{
+		{name: "contains", mode: "contains", pattern: "test", command: "npm test -- --watch", matched: true},
+		{name: "startsWith", mode: "startsWith", pattern: "npm", command: "npm test", matched: true},
+		{name: "exact", mode: "exact", pattern: "npm test", command: "npm test", matched: true},
+		{name: "exact miss", mode: "exact", pattern: "npm test", command: "npm run test", matched: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config := AppConfig{
+				Sounds: []SoundRecord{sound},
+				Rules: []RuleRecord{
+					testRuleRecord("rule-1", "command_success", sound.ID, test.mode, test.pattern, nil, true),
+				},
+			}
+
+			result := evaluateEvent(config, TerminalEvent{EventType: "command_success", Command: test.command})
+			if result.Matched != test.matched {
+				t.Fatalf("expected matched=%v, got %+v", test.matched, result)
+			}
+		})
+	}
+}
+
+func TestEvaluateEventIgnoresDisabledRules(t *testing.T) {
+	sound := testSoundRecord("sound-1", "/tmp/original.wav", nil)
+	config := AppConfig{
+		Sounds: []SoundRecord{sound},
+		Rules: []RuleRecord{
+			testRuleRecord("rule-1", "command_success", sound.ID, "", "", nil, false),
+		},
+	}
+
+	result := evaluateEvent(config, TerminalEvent{EventType: "command_success"})
+	if result.Matched {
+		t.Fatalf("expected disabled rule to be ignored, got %+v", result)
+	}
+}
+
+func TestEvaluateEventMissingSoundHandledSafely(t *testing.T) {
+	config := AppConfig{
+		Rules: []RuleRecord{
+			testRuleRecord("rule-1", "command_success", "missing-sound", "", "", nil, true),
+		},
+	}
+
+	result := evaluateEvent(config, TerminalEvent{EventType: "command_success"})
+	if !result.Matched || !result.MissingSound || result.Sound != nil {
+		t.Fatalf("expected missing sound match result, got %+v", result)
+	}
+}
+
+func TestEvaluateEventPrefersProcessedPath(t *testing.T) {
+	dir := t.TempDir()
+	originalPath := filepath.Join(dir, "original.wav")
+	processedPath := filepath.Join(dir, "processed.wav")
+	if err := os.WriteFile(originalPath, []byte("original"), 0o644); err != nil {
+		t.Fatalf("write original: %v", err)
+	}
+	if err := os.WriteFile(processedPath, []byte("processed"), 0o644); err != nil {
+		t.Fatalf("write processed: %v", err)
+	}
+
+	sound := testSoundRecord("sound-1", originalPath, &processedPath)
+	config := AppConfig{
+		Sounds: []SoundRecord{sound},
+		Rules: []RuleRecord{
+			testRuleRecord("rule-1", "command_success", sound.ID, "", "", nil, true),
+		},
+	}
+
+	result := evaluateEvent(config, TerminalEvent{EventType: "command_success"})
+	if result.SoundPath != processedPath {
+		t.Fatalf("expected processed path %q, got %q", processedPath, result.SoundPath)
+	}
+}
+
+func TestEvaluateEventDeterministicPriority(t *testing.T) {
+	exitCode := 0
+	sound := testSoundRecord("sound-1", "/tmp/original.wav", nil)
+	config := AppConfig{
+		Sounds: []SoundRecord{sound},
+		Rules: []RuleRecord{
+			testRuleRecord("broad-first", "command_success", sound.ID, "any", "", nil, true),
+			testRuleRecord("contains-second", "command_success", sound.ID, "contains", "test", nil, true),
+			testRuleRecord("exact-third", "command_success", sound.ID, "exact", "npm test", nil, true),
+			testRuleRecord("exact-with-exit-fourth", "command_success", sound.ID, "exact", "npm test", &exitCode, true),
+		},
+	}
+
+	result := evaluateEvent(config, TerminalEvent{EventType: "command_success", Command: "npm test", ExitCode: &exitCode})
+	if result.Rule == nil || result.Rule.ID != "exact-with-exit-fourth" {
+		t.Fatalf("expected exact rule with exit code priority, got %+v", result)
+	}
+
+	config.Rules = []RuleRecord{
+		testRuleRecord("first-created", "command_success", sound.ID, "exact", "npm test", nil, true),
+		testRuleRecord("second-created", "command_success", sound.ID, "exact", "npm test", nil, true),
+	}
+	result = evaluateEvent(config, TerminalEvent{EventType: "command_success", Command: "npm test"})
+	if result.Rule == nil || result.Rule.ID != "first-created" {
+		t.Fatalf("expected first-created tie winner, got %+v", result)
+	}
+}
+
+func TestHandleTerminalEventStartsPlaybackOnMatch(t *testing.T) {
+	isolateUserDirs(t)
+	app := NewApp()
+	sound := importTestSound(t, "success.wav")
+	createTestRule(t, app, RuleRequest{Name: "Command success", Enabled: true, EventType: "command_success", SoundID: sound.ID})
+
+	var playedPath string
+	restorePlayback := stubPlayback(t, func(path string, stopPrevious bool) error {
+		playedPath = path
+		if !stopPrevious {
+			t.Fatal("expected stopPrevious to default true")
+		}
+		return nil
+	})
+	defer restorePlayback()
+
+	result, err := app.HandleTerminalEvent(TerminalEvent{EventType: "command_success"})
+	if err != nil {
+		t.Fatalf("HandleTerminalEvent() error = %v", err)
+	}
+	if !result.Matched || !result.PlaybackStarted {
+		t.Fatalf("expected matched playback result, got %+v", result)
+	}
+	if playedPath != sound.OriginalPath {
+		t.Fatalf("expected playback path %q, got %q", sound.OriginalPath, playedPath)
+	}
+}
+
+func TestHandleTerminalEventNoMatch(t *testing.T) {
+	isolateUserDirs(t)
+	app := NewApp()
+	restorePlayback := stubPlayback(t, func(path string, stopPrevious bool) error {
+		t.Fatal("playback should not start for no match")
+		return nil
+	})
+	defer restorePlayback()
+
+	result, err := app.HandleTerminalEvent(TerminalEvent{EventType: "command_success"})
+	if err != nil {
+		t.Fatalf("HandleTerminalEvent() error = %v", err)
+	}
+	if result.Matched || result.PlaybackAttempted {
+		t.Fatalf("expected no match without playback, got %+v", result)
+	}
+}
+
+func TestHandleTerminalEventMissingSound(t *testing.T) {
+	isolateUserDirs(t)
+	app := NewApp()
+	sound := importTestSound(t, "success.wav")
+	created := createTestRule(t, app, RuleRequest{Name: "Command success", Enabled: true, EventType: "command_success", SoundID: sound.ID})
+	if _, err := app.DeleteSound(sound.ID); err != nil {
+		t.Fatalf("DeleteSound() error = %v", err)
+	}
+	restorePlayback := stubPlayback(t, func(path string, stopPrevious bool) error {
+		t.Fatal("playback should not start for missing sound")
+		return nil
+	})
+	defer restorePlayback()
+
+	result, err := app.HandleTerminalEvent(TerminalEvent{EventType: "command_success"})
+	if err != nil {
+		t.Fatalf("HandleTerminalEvent() error = %v", err)
+	}
+	if !result.Matched || !result.MissingSound || result.Rule == nil || result.Rule.ID != created.ID {
+		t.Fatalf("expected missing sound match, got %+v", result)
+	}
+}
+
+func TestHandleTerminalEventPlaybackDisabled(t *testing.T) {
+	isolateUserDirs(t)
+	app := NewApp()
+	sound := importTestSound(t, "success.wav")
+	createTestRule(t, app, RuleRequest{Name: "Command success", Enabled: true, EventType: "command_success", SoundID: sound.ID})
+
+	snapshot, err := LoadConfigSnapshot()
+	if err != nil {
+		t.Fatalf("LoadConfigSnapshot() error = %v", err)
+	}
+	snapshot.Config.PlaybackEnabled = false
+	if _, err := app.SaveConfig(snapshot.Config); err != nil {
+		t.Fatalf("SaveConfig() error = %v", err)
+	}
+
+	restorePlayback := stubPlayback(t, func(path string, stopPrevious bool) error {
+		t.Fatal("playback should not start when disabled")
+		return nil
+	})
+	defer restorePlayback()
+
+	result, err := app.HandleTerminalEvent(TerminalEvent{EventType: "command_success"})
+	if err != nil {
+		t.Fatalf("HandleTerminalEvent() error = %v", err)
+	}
+	if !result.Matched || result.PlaybackAttempted || result.PlaybackEnabled {
+		t.Fatalf("expected matched result with playback disabled, got %+v", result)
+	}
+}
+
+func TestHandleTerminalEventListeningPaused(t *testing.T) {
+	isolateUserDirs(t)
+	app := NewApp()
+	sound := importTestSound(t, "success.wav")
+	createTestRule(t, app, RuleRequest{Name: "Command success", Enabled: true, EventType: "command_success", SoundID: sound.ID})
+
+	snapshot, err := LoadConfigSnapshot()
+	if err != nil {
+		t.Fatalf("LoadConfigSnapshot() error = %v", err)
+	}
+	snapshot.Config.Listening = false
+	if _, err := app.SaveConfig(snapshot.Config); err != nil {
+		t.Fatalf("SaveConfig() error = %v", err)
+	}
+
+	restorePlayback := stubPlayback(t, func(path string, stopPrevious bool) error {
+		t.Fatal("playback should not start while listening is paused")
+		return nil
+	})
+	defer restorePlayback()
+
+	result, err := app.HandleTerminalEvent(TerminalEvent{EventType: "command_success"})
+	if err != nil {
+		t.Fatalf("HandleTerminalEvent() error = %v", err)
+	}
+	if result.Matched || result.Message != "Listening is paused" {
+		t.Fatalf("expected listening paused result, got %+v", result)
+	}
+}
+
 func importTestSound(t *testing.T, name string) SoundRecord {
 	t.Helper()
 
@@ -376,6 +638,56 @@ func importTestSound(t *testing.T, name string) SoundRecord {
 		t.Fatalf("importSoundPaths() error = %v", err)
 	}
 	return snapshot.Config.Sounds[len(snapshot.Config.Sounds)-1]
+}
+
+func createTestRule(t *testing.T, app *App, request RuleRequest) RuleRecord {
+	t.Helper()
+
+	snapshot, err := app.CreateRule(request)
+	if err != nil {
+		t.Fatalf("CreateRule() error = %v", err)
+	}
+	return snapshot.Config.Rules[len(snapshot.Config.Rules)-1]
+}
+
+func stubPlayback(t *testing.T, start func(path string, stopPrevious bool) error) func() {
+	t.Helper()
+
+	originalStart := startPlayback
+	originalStop := stopCurrentPlayback
+	startPlayback = start
+	stopCurrentPlayback = func() error { return nil }
+	return func() {
+		startPlayback = originalStart
+		stopCurrentPlayback = originalStop
+	}
+}
+
+func testSoundRecord(id string, originalPath string, processedPath *string) SoundRecord {
+	return SoundRecord{
+		ID:            id,
+		Name:          id,
+		OriginalPath:  originalPath,
+		ProcessedPath: processedPath,
+		Format:        "wav",
+		Status:        "ready",
+		CreatedAt:     "2026-01-01T00:00:00Z",
+	}
+}
+
+func testRuleRecord(id string, eventType string, soundID string, matchMode string, commandPattern string, exitCode *int, enabled bool) RuleRecord {
+	return RuleRecord{
+		ID:             id,
+		Name:           id,
+		Enabled:        enabled,
+		EventType:      eventType,
+		SoundID:        soundID,
+		MatchMode:      matchMode,
+		CommandPattern: commandPattern,
+		ExitCode:       exitCode,
+		CreatedAt:      "2026-01-01T00:00:00Z",
+		UpdatedAt:      "2026-01-01T00:00:00Z",
+	}
 }
 
 func isolateUserDirs(t *testing.T) {

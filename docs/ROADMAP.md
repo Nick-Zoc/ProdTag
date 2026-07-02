@@ -76,6 +76,7 @@ Tasks:
 - [x] Add rule create, edit, enable/disable, delete, and test-sound UI.
 - [x] Show missing sound state when a referenced sound is deleted.
 - [x] Add backend rule CRUD methods and config persistence tests.
+- [x] Add internal rule matcher and in-app event simulator.
 - [ ] Generate lightweight matcher cache for shell integrations.
 
 Done when:
@@ -86,8 +87,12 @@ Notes:
 
 - Rules are definitions only in Phase 3; real terminal detection, helper playback, shell hooks, and daemon behavior are intentionally deferred.
 - Playlist/group assignment remains open from Phase 2, so Phase 3 rules assign a single sound.
+- Phase 3.1 matcher priority is deterministic: enabled rules matching the event type are considered, exact/regex and command-specific rules outrank broad any rules, exit-code-specific rules get a small priority bump, and equal priority keeps first-created/config order.
+- Phase 3.1 recent simulated events are in memory only; persistent logging belongs to the helper/integration phase.
 
 ## Phase 4 — Helper + Shell Integration
+
+Status: Phase 4.0 backend event/playback path complete; shell/helper integration remains.
 
 Goal: Make rules react to real terminal commands without requiring the UI to stay open.
 
@@ -95,9 +100,10 @@ Tasks:
 
 - [ ] Create `prodtag-helper` Go process.
 - [ ] Add IPC or CLI command for sending events to helper.
-- [ ] Implement async playback from processed WAV files.
-- [ ] Add listening/muted state handling.
-- [ ] Add stop-current-audio action.
+- [x] Implement async backend playback from matched local sound files on macOS through `afplay`.
+- [x] Add local event handling API that evaluates events, starts backend playback, and records recent handled events.
+- [x] Add listening/muted/playback config handling for the backend event path.
+- [x] Add stop-current-audio backend/UI action.
 - [ ] Add helper status display in Dashboard.
 - [ ] Add zsh integration first.
 - [ ] Add bash integration.
@@ -109,6 +115,12 @@ Tasks:
 Done when:
 
 - [ ] Running a matching command in zsh, bash, or PowerShell can trigger the assigned rule sound through the helper.
+
+Notes:
+
+- Phase 4.0 adds the local app backend path only: `HandleTerminalEvent` evaluates a terminal event, selects the matched sound, starts backend playback when enabled, and records an in-memory recent event entry.
+- Backend playback currently supports macOS via `afplay`; Windows/Linux playback methods are structured for later implementation.
+- Local HTTP intake was deferred to Phase 4.1. The preferred next step is a local-only CLI/helper receiver rather than exposing a remote listener.
 
 ## Phase 5 — Rule Presets and Matching Polish
 

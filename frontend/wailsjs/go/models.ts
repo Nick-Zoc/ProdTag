@@ -152,6 +152,10 @@ export namespace main {
 	    version: number;
 	    listening: boolean;
 	    muted: boolean;
+	    eventEngineEnabled: boolean;
+	    playbackEnabled: boolean;
+	    stopPreviousSoundOnNewEvent: boolean;
+	    localEventPort?: number;
 	    launchHelperAtStartup: boolean;
 	    sounds: SoundRecord[];
 	    playlists: PlaylistRecord[];
@@ -169,6 +173,10 @@ export namespace main {
 	        this.version = source["version"];
 	        this.listening = source["listening"];
 	        this.muted = source["muted"];
+	        this.eventEngineEnabled = source["eventEngineEnabled"];
+	        this.playbackEnabled = source["playbackEnabled"];
+	        this.stopPreviousSoundOnNewEvent = source["stopPreviousSoundOnNewEvent"];
+	        this.localEventPort = source["localEventPort"];
 	        this.launchHelperAtStartup = source["launchHelperAtStartup"];
 	        this.sounds = this.convertValues(source["sounds"], SoundRecord);
 	        this.playlists = this.convertValues(source["playlists"], PlaylistRecord);
@@ -276,7 +284,101 @@ export namespace main {
 	}
 	
 	
+	export class PlaybackStatus {
+	    supported: boolean;
+	    platform: string;
+	    method: string;
+	    playing: boolean;
+	    message: string;
 	
+	    static createFrom(source: any = {}) {
+	        return new PlaybackStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.supported = source["supported"];
+	        this.platform = source["platform"];
+	        this.method = source["method"];
+	        this.playing = source["playing"];
+	        this.message = source["message"];
+	    }
+	}
+	
+	export class TerminalEvent {
+	    eventType: string;
+	    command?: string;
+	    exitCode?: number;
+	    cwd?: string;
+	    timestamp: string;
+	    durationMs?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new TerminalEvent(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.eventType = source["eventType"];
+	        this.command = source["command"];
+	        this.exitCode = source["exitCode"];
+	        this.cwd = source["cwd"];
+	        this.timestamp = source["timestamp"];
+	        this.durationMs = source["durationMs"];
+	    }
+	}
+	export class RecentEventRecord {
+	    id: string;
+	    event: TerminalEvent;
+	    matched: boolean;
+	    ruleId?: string;
+	    ruleName?: string;
+	    soundId?: string;
+	    soundName?: string;
+	    missingSound: boolean;
+	    playbackStarted: boolean;
+	    playbackError?: string;
+	    message: string;
+	    timestamp: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RecentEventRecord(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.event = this.convertValues(source["event"], TerminalEvent);
+	        this.matched = source["matched"];
+	        this.ruleId = source["ruleId"];
+	        this.ruleName = source["ruleName"];
+	        this.soundId = source["soundId"];
+	        this.soundName = source["soundName"];
+	        this.missingSound = source["missingSound"];
+	        this.playbackStarted = source["playbackStarted"];
+	        this.playbackError = source["playbackError"];
+	        this.message = source["message"];
+	        this.timestamp = source["timestamp"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class RenameSoundRequest {
 	    id: string;
 	    name: string;
@@ -290,6 +392,58 @@ export namespace main {
 	        this.id = source["id"];
 	        this.name = source["name"];
 	    }
+	}
+	export class RuleMatchResult {
+	    matched: boolean;
+	    rule?: RuleRecord;
+	    sound?: SoundRecord;
+	    soundPath?: string;
+	    missingSound: boolean;
+	    playbackAttempted: boolean;
+	    playbackStarted: boolean;
+	    playbackError?: string;
+	    eventEngineEnabled: boolean;
+	    playbackEnabled: boolean;
+	    message: string;
+	    event: TerminalEvent;
+	
+	    static createFrom(source: any = {}) {
+	        return new RuleMatchResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.matched = source["matched"];
+	        this.rule = this.convertValues(source["rule"], RuleRecord);
+	        this.sound = this.convertValues(source["sound"], SoundRecord);
+	        this.soundPath = source["soundPath"];
+	        this.missingSound = source["missingSound"];
+	        this.playbackAttempted = source["playbackAttempted"];
+	        this.playbackStarted = source["playbackStarted"];
+	        this.playbackError = source["playbackError"];
+	        this.eventEngineEnabled = source["eventEngineEnabled"];
+	        this.playbackEnabled = source["playbackEnabled"];
+	        this.message = source["message"];
+	        this.event = this.convertValues(source["event"], TerminalEvent);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	
 	export class RuleRequest {
@@ -318,6 +472,7 @@ export namespace main {
 	        this.exitCode = source["exitCode"];
 	    }
 	}
+	
 	
 
 }

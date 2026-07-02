@@ -69,6 +69,22 @@ ProdTag is a Wails v2 desktop app with a Go backend/helper direction and a React
   - The Rules page now supports create, edit, enable/disable, delete confirmation, selected sound metadata, missing sound references, and test playback.
   - Dashboard now shows total rules and enabled rules.
   - Rules are definitions only in this phase; terminal capture, helper playback, shell hooks, background daemon behavior, real hotkeys, and one-click dependency installs remain deferred.
+- Phase 3.1: Rule matcher engine and event simulator.
+  - Added a backend terminal event model with event type, optional command, optional exit code, optional cwd, timestamp, and optional duration.
+  - Added internal matcher logic for enabled rules, event type, command match modes, optional exit code constraints, missing sound handling, and processed-path preference.
+  - Match priority is deterministic: exact/regex and command-specific rules outrank broad any rules, exit-code-specific rules get a small bump, and equal-priority ties keep first-created/config order.
+  - Added Wails methods for evaluating events, simulating events, listing recent simulated events, and clearing recent simulated events.
+  - Added a compact Rules page event simulator with matched rule/sound display, no-match state, matched-sound playback, and an in-memory recent event log.
+  - Recent simulated events are intentionally non-persistent until the helper/shell integration phase defines real logging needs.
+- Phase 4.0: Backend playback engine and local event handling path.
+  - Added a backend playback service that prefers processed sound files, falls back to originals, and starts playback asynchronously.
+  - macOS playback uses `afplay`; Windows/Linux playback methods are explicitly deferred but the service boundary is in place.
+  - Added stop-current-playback support and playback status reporting.
+  - Added `HandleTerminalEvent`, which reuses the matcher, starts backend playback when enabled, records recent handled events, and returns playback status/error details.
+  - Added config fields for `eventEngineEnabled`, `playbackEnabled`, `stopPreviousSoundOnNewEvent`, and optional `localEventPort`; defaults are enabled/enabled/stop previous.
+  - Rules simulator now has a full-path "Handle + play" action in addition to matcher-only simulation.
+  - Integrations page now shows event engine status, backend playback support/method, stop playback, and recent handled events.
+  - Local HTTP intake was deferred to Phase 4.1; the preferred route is local-only CLI/helper intake rather than remote/network exposure.
 
 ## Current UX Direction
 
@@ -86,8 +102,8 @@ ProdTag is a Wails v2 desktop app with a Go backend/helper direction and a React
 
 ## Next Up
 
-- Phase 4 helper and shell integration planning.
+- Phase 4.1 helper and local shell integration intake planning.
 - Playlist/group assignment is still open from Phase 2 if it is needed before moving into helper playback.
-- The next technical boundary is making saved rules react to real terminal events through the helper and shell integrations.
+- The next technical boundary is sending real terminal events into `HandleTerminalEvent` through a local helper/CLI/shell integration.
 - Packaging note: the earlier Codex-side macOS `UTType` linker/package warning is considered resolved for now because the user manually ran `wails build` successfully and produced `build/bin/ProdTag.app`.
 - Codex-side `wails build` may still fail at the final macOS app compile step in this sandbox even after frontend and Go tests pass; prefer user-local manual build as the packaging truth for now.

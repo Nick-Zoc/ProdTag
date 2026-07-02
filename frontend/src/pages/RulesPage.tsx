@@ -1,9 +1,13 @@
 import {useEffect, useMemo, useRef, useState} from 'react';
-import {BellRing, CheckCircle2, Edit3, Play, Plus, Save, SlidersHorizontal, Trash2, X, XCircle} from 'lucide-react';
+import {BellRing, CheckCircle2, Edit3, Play, Plus, RotateCcw, Save, SlidersHorizontal, Trash2, X, XCircle} from 'lucide-react';
 import {
+  ClearRecentEvents,
   CreateRule,
   DeleteRule,
   GetSoundPreviewDataURL,
+  HandleTerminalEvent,
+  ListRecentEvents,
+  SimulateEvent,
   TestRuleSound,
   ToggleRule,
   UpdateRule,
@@ -14,7 +18,7 @@ import {Card} from '../components/Card';
 import {ConfirmDialog} from '../components/ConfirmDialog';
 import {EmptyState} from '../components/EmptyState';
 import {Toast, ToastState} from '../components/Toast';
-import {AppConfig, ConfigSnapshot, RuleRecord, SoundRecord} from '../types/app';
+import {AppConfig, ConfigSnapshot, RecentEventRecord, RuleMatchResult, RuleRecord, SoundRecord} from '../types/app';
 
 type RulesPageProps = {
   config: AppConfig;
@@ -32,15 +36,31 @@ type RuleFormState = {
   exitCode: string;
 };
 
+type SimulatorFormState = {
+  eventType: string;
+  command: string;
+  exitCode: string;
+  cwd: string;
+  durationMs: string;
+};
+
 const emptyForm: RuleFormState = {
   id: null,
   name: '',
   enabled: true,
   eventType: 'command_success',
   soundId: '',
-  matchMode: '',
+  matchMode: 'any',
   commandPattern: '',
   exitCode: '',
+};
+
+const emptySimulator: SimulatorFormState = {
+  eventType: 'command_success',
+  command: 'npm test',
+  exitCode: '0',
+  cwd: '',
+  durationMs: '',
 };
 
 const eventTypes = [
@@ -55,9 +75,10 @@ const eventTypes = [
 ] as const;
 
 const matchModes = [
-  ['', 'No command filter'],
+  ['any', 'Any command'],
   ['exact', 'Exact'],
   ['startsWith', 'Starts with'],
+  ['endsWith', 'Ends with'],
   ['contains', 'Contains'],
   ['regex', 'Regex'],
 ] as const;
@@ -70,6 +91,11 @@ export function RulesPage({config, onConfigUpdated}: RulesPageProps) {
   const [savingRuleId, setSavingRuleId] = useState<string | null>(null);
   const [deletingRuleId, setDeletingRuleId] = useState<string | null>(null);
   const [testingRuleId, setTestingRuleId] = useState<string | null>(null);
+  const [simulator, setSimulator] = useState<SimulatorFormState>(emptySimulator);
+  const [simulationResult, setSimulationResult] = useState<RuleMatchResult | null>(null);
+  const [recentEvents, setRecentEvents] = useState<RecentEventRecord[]>([]);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [isHandlingEvent, setIsHandlingEvent] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const soundsById = useMemo(() => {
@@ -93,6 +119,19 @@ export function RulesPage({config, onConfigUpdated}: RulesPageProps) {
       setForm((current) => ({...current, soundId: config.sounds[0].id}));
     }
   }, [config.sounds, form.soundId]);
+
+  useEffect(() => {
+    void refreshRecentEvents();
+  }, []);
+
+  async function refreshRecentEvents() {
+    try {
+      const events = await ListRecentEvents();
+      setRecentEvents(events as RecentEventRecord[]);
+    } catch (error) {
+      setToast({message: failureMessage(error), tone: 'rose'});
+    }
+  }
 
   function openCreateForm() {
     setForm({...emptyForm, soundId: config.sounds[0]?.id ?? ''});
@@ -215,6 +254,80 @@ export function RulesPage({config, onConfigUpdated}: RulesPageProps) {
     }
   }
 
+  async function simulateEvent() {
+    const event = simulatorEvent(simulator);
+    if (typeof event === 'string') {
+      setToast({message: event, tone: 'rose'});
+      return;
+    }
+
+    setIsSimulating(true);
+    try {
+      const result = await SimulateEvent(event);
+      setSimulationResult(result as RuleMatchResult);
+      setToast({message: (result as RuleMatchResult).matched ? 'Event matched a rule' : 'No matching rule', tone: (result as RuleMatchResult).matched ? 'green' : 'neutral'});
+      await refreshRecentEvents();
+    } catch (error) {
+      setToast({message: failureMessage(error), tone: 'rose'});
+    } finally {
+      setIsSimulating(false);
+    }
+  }
+
+  async function handleEventWithPlayback() {
+    const event = simulatorEvent(simulator);
+    if (typeof event === 'string') {
+      setToast({message: event, tone: 'rose'});
+      return;
+    }
+
+    setIsHandlingEvent(true);
+    try {
+      const result = await HandleTerminalEvent(event);
+      setSimulationResult(result as RuleMatchResult);
+      const handled = result as RuleMatchResult;
+      setToast({
+        message: handled.playbackError || handled.message,
+        tone: handled.playbackError ? 'rose' : handled.matched ? 'green' : 'neutral',
+      });
+      await refreshRecentEvents();
+    } catch (error) {
+      setToast({message: failureMessage(error), tone: 'rose'});
+    } finally {
+      setIsHandlingEvent(false);
+    }
+  }
+
+  async function clearRecentEvents() {
+    try {
+      const events = await ClearRecentEvents();
+      setRecentEvents(events as RecentEventRecord[]);
+      setToast({message: 'Recent events cleared', tone: 'green'});
+    } catch (error) {
+      setToast({message: failureMessage(error), tone: 'rose'});
+    }
+  }
+
+  async function playSimulationSound() {
+    if (!simulationResult?.sound) {
+      setToast({message: 'No matched sound to play', tone: 'rose'});
+      return;
+    }
+
+    setTestingRuleId('simulation');
+    try {
+      stopPreview();
+      const dataURL = await GetSoundPreviewDataURL(simulationResult.sound.id);
+      const audio = new Audio(dataURL);
+      audioRef.current = audio;
+      audio.addEventListener('ended', () => setTestingRuleId(null), {once: true});
+      await audio.play();
+    } catch (error) {
+      setToast({message: failureMessage(error), tone: 'rose'});
+      setTestingRuleId(null);
+    }
+  }
+
   function stopPreview() {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -254,6 +367,20 @@ export function RulesPage({config, onConfigUpdated}: RulesPageProps) {
 
         {toast && <Toast toast={toast} onDismiss={() => setToast(null)} />}
       </Card>
+
+      <EventSimulator
+        form={simulator}
+        isPlaying={testingRuleId === 'simulation'}
+        isHandlingEvent={isHandlingEvent}
+        isSimulating={isSimulating}
+        recentEvents={recentEvents}
+        result={simulationResult}
+        onChange={setSimulator}
+        onClearRecent={clearRecentEvents}
+        onHandleEvent={handleEventWithPlayback}
+        onPlayMatchedSound={playSimulationSound}
+        onSimulate={simulateEvent}
+      />
 
       {isFormOpen && (
         <RuleForm
@@ -397,7 +524,7 @@ function RuleForm({
           <span className="text-sm font-semibold text-neutral-700">Command pattern</span>
           <input
             className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-950"
-            disabled={!form.matchMode}
+            disabled={form.matchMode === 'any'}
             onChange={(event) => onChange({...form, commandPattern: event.target.value})}
             placeholder="npm test"
             value={form.commandPattern}
@@ -438,6 +565,199 @@ function RuleForm({
         </Button>
       </div>
     </Card>
+  );
+}
+
+function EventSimulator({
+  form,
+  isHandlingEvent,
+  isPlaying,
+  isSimulating,
+  onChange,
+  onClearRecent,
+  onHandleEvent,
+  onPlayMatchedSound,
+  onSimulate,
+  recentEvents,
+  result,
+}: {
+  form: SimulatorFormState;
+  result: RuleMatchResult | null;
+  recentEvents: RecentEventRecord[];
+  isHandlingEvent: boolean;
+  isSimulating: boolean;
+  isPlaying: boolean;
+  onChange: (form: SimulatorFormState) => void;
+  onSimulate: () => void;
+  onHandleEvent: () => void;
+  onPlayMatchedSound: () => void;
+  onClearRecent: () => void;
+}) {
+  return (
+    <Card>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold">Event simulator</h2>
+          <p className="mt-1 text-sm text-neutral-500">
+            Test rule matching before shell integration exists.
+          </p>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button isLoading={isSimulating} leftIcon={<SlidersHorizontal size={16} />} onClick={onSimulate} variant="secondary">
+            Simulate
+          </Button>
+          <Button isLoading={isHandlingEvent} leftIcon={<Play size={16} />} onClick={onHandleEvent}>
+            Handle + play
+          </Button>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        <label className="grid gap-2">
+          <span className="text-sm font-semibold text-neutral-700">Event type</span>
+          <select
+            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-950"
+            onChange={(event) => onChange({...form, eventType: event.target.value})}
+            value={form.eventType}
+          >
+            {eventTypes.map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="grid gap-2">
+          <span className="text-sm font-semibold text-neutral-700">Command</span>
+          <input
+            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-950"
+            onChange={(event) => onChange({...form, command: event.target.value})}
+            placeholder="npm test"
+            value={form.command}
+          />
+        </label>
+
+        <label className="grid gap-2">
+          <span className="text-sm font-semibold text-neutral-700">Exit code</span>
+          <input
+            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-950"
+            inputMode="numeric"
+            onChange={(event) => onChange({...form, exitCode: event.target.value})}
+            placeholder="0"
+            value={form.exitCode}
+          />
+        </label>
+
+        <label className="grid gap-2">
+          <span className="text-sm font-semibold text-neutral-700">Duration ms</span>
+          <input
+            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-950"
+            inputMode="numeric"
+            onChange={(event) => onChange({...form, durationMs: event.target.value})}
+            placeholder="Optional"
+            value={form.durationMs}
+          />
+        </label>
+
+        <label className="grid gap-2 lg:col-span-2">
+          <span className="text-sm font-semibold text-neutral-700">Working directory</span>
+          <input
+            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-950"
+            onChange={(event) => onChange({...form, cwd: event.target.value})}
+            placeholder="Optional"
+            value={form.cwd}
+          />
+        </label>
+      </div>
+
+      <SimulationResult result={result} isPlaying={isPlaying} onPlayMatchedSound={onPlayMatchedSound} />
+
+      <div className="mt-5 flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-neutral-700">Recent simulated events</h3>
+        <Button disabled={recentEvents.length === 0} leftIcon={<RotateCcw size={15} />} onClick={onClearRecent} variant="ghost">
+          Clear
+        </Button>
+      </div>
+      {recentEvents.length === 0 ? (
+        <p className="mt-3 rounded-lg bg-neutral-50 px-3 py-2 text-sm text-neutral-500">No simulated events yet.</p>
+      ) : (
+        <div className="mt-3 grid gap-2">
+          {recentEvents.map((event) => (
+            <div key={event.id} className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-neutral-800">{eventLabel(event.event.eventType)}</div>
+                  <div className="mt-1 truncate text-xs text-neutral-500">{event.event.command || 'No command'}{event.event.exitCode !== null && event.event.exitCode !== undefined ? ` - exit ${event.event.exitCode}` : ''}</div>
+                </div>
+                <Badge tone={event.matched ? event.missingSound ? 'rose' : 'green' : 'neutral'}>
+                  {event.matched ? event.ruleName || 'Matched' : 'No match'}
+                </Badge>
+              </div>
+              {event.soundName && <div className="mt-1 text-xs text-neutral-500">Sound: {event.soundName}</div>}
+              {(event.playbackStarted || event.playbackError) && (
+                <div className="mt-1 text-xs text-neutral-500">
+                  {event.playbackError ? `Playback error: ${event.playbackError}` : 'Playback started'}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function SimulationResult({
+  isPlaying,
+  onPlayMatchedSound,
+  result,
+}: {
+  result: RuleMatchResult | null;
+  isPlaying: boolean;
+  onPlayMatchedSound: () => void;
+}) {
+  if (!result) {
+    return (
+      <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-3 text-sm text-neutral-500">
+        Simulate an event to see which rule would fire.
+      </div>
+    );
+  }
+
+  if (!result.matched) {
+    return (
+      <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-neutral-800">
+          <XCircle size={16} />
+          No matching rule
+        </div>
+        <p className="mt-1 text-sm text-neutral-500">{result.message}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={result.missingSound ? 'mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-3' : 'mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3'}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
+            {result.missingSound ? <XCircle size={16} /> : <CheckCircle2 size={16} />}
+            {result.rule?.name || 'Matched rule'}
+          </div>
+          <p className="mt-1 text-sm text-neutral-600">
+            {result.missingSound ? 'The matched rule points to a missing sound.' : `Sound: ${result.sound?.name || 'Unknown sound'}`}
+          </p>
+          {(result.playbackStarted || result.playbackError || result.playbackAttempted) && (
+            <p className="mt-1 text-sm text-neutral-600">
+              {result.playbackError ? `Playback error: ${result.playbackError}` : result.playbackStarted ? 'Backend playback started.' : result.message}
+            </p>
+          )}
+          {result.soundPath && <p className="mt-2 break-all font-mono text-xs text-neutral-500">{result.soundPath}</p>}
+        </div>
+        <Button disabled={!result.sound} isLoading={isPlaying} leftIcon={<Play size={15} />} onClick={onPlayMatchedSound} variant="success">
+          Play
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -558,6 +878,26 @@ function validateForm(form: RuleFormState, hasSounds: boolean) {
     return 'Exit code must be a number';
   }
   return '';
+}
+
+function simulatorEvent(form: SimulatorFormState) {
+  const exitCode = form.exitCode.trim() === '' ? undefined : Number(form.exitCode);
+  const durationMs = form.durationMs.trim() === '' ? undefined : Number(form.durationMs);
+  if (exitCode !== undefined && Number.isNaN(exitCode)) {
+    return 'Exit code must be a number';
+  }
+  if (durationMs !== undefined && Number.isNaN(durationMs)) {
+    return 'Duration must be a number';
+  }
+
+  return {
+    eventType: form.eventType,
+    command: form.command.trim(),
+    exitCode,
+    cwd: form.cwd.trim(),
+    timestamp: new Date().toISOString(),
+    durationMs,
+  };
 }
 
 function eventLabel(value: string) {

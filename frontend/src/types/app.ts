@@ -43,6 +43,53 @@ export type RuleRecord = {
   probability?: number;
 };
 
+export type TerminalEvent = {
+  eventType: string;
+  command?: string;
+  exitCode?: number | null;
+  cwd?: string;
+  timestamp: string;
+  durationMs?: number | null;
+};
+
+export type RuleMatchResult = {
+  matched: boolean;
+  rule?: RuleRecord | null;
+  sound?: SoundRecord | null;
+  soundPath?: string;
+  missingSound: boolean;
+  playbackAttempted: boolean;
+  playbackStarted: boolean;
+  playbackError?: string;
+  eventEngineEnabled: boolean;
+  playbackEnabled: boolean;
+  message: string;
+  event: TerminalEvent;
+};
+
+export type RecentEventRecord = {
+  id: string;
+  event: TerminalEvent;
+  matched: boolean;
+  ruleId?: string;
+  ruleName?: string;
+  soundId?: string;
+  soundName?: string;
+  missingSound: boolean;
+  playbackStarted: boolean;
+  playbackError?: string;
+  message: string;
+  timestamp: string;
+};
+
+export type PlaybackStatus = {
+  supported: boolean;
+  platform: string;
+  method: string;
+  playing: boolean;
+  message: string;
+};
+
 export type ShellIntegrationState = {
   installed: boolean;
   scope: string;
@@ -53,6 +100,10 @@ export type AppConfig = {
   version: number;
   listening: boolean;
   muted: boolean;
+  eventEngineEnabled: boolean;
+  playbackEnabled: boolean;
+  stopPreviousSoundOnNewEvent: boolean;
+  localEventPort?: number;
   launchHelperAtStartup: boolean;
   sounds: SoundRecord[];
   playlists: PlaylistRecord[];

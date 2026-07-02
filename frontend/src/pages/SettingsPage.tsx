@@ -26,10 +26,28 @@ export function SettingsPage({config, paths, updateDraft}: SettingsPageProps) {
             onChange={(listening) => updateDraft({listening})}
           />
           <ToggleCard
+            label="Event engine"
+            description="Off means simulated or local events are logged but not matched."
+            checked={config.eventEngineEnabled}
+            onChange={(eventEngineEnabled) => updateDraft({eventEngineEnabled})}
+          />
+          <ToggleCard
             label="Muted"
             description="On means events can still be received and logged, but no sound plays."
             checked={config.muted}
             onChange={(muted) => updateDraft({muted})}
+          />
+          <ToggleCard
+            label="Backend playback"
+            description="Off means matching events will not start local audio playback."
+            checked={config.playbackEnabled}
+            onChange={(playbackEnabled) => updateDraft({playbackEnabled})}
+          />
+          <ToggleCard
+            label="Stop previous sound"
+            description="On means a new event stops current backend playback before starting another sound."
+            checked={config.stopPreviousSoundOnNewEvent}
+            onChange={(stopPreviousSoundOnNewEvent) => updateDraft({stopPreviousSoundOnNewEvent})}
           />
           <ToggleCard
             label="Start helper at login"

@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	configVersion = 1
+	configVersion = 2
 	appName       = "ProdTag"
 	linuxAppName  = "prodtag"
 )
@@ -33,16 +33,20 @@ type ConfigSnapshot struct {
 }
 
 type AppConfig struct {
-	Version               int                 `json:"version"`
-	Listening             bool                `json:"listening"`
-	Muted                 bool                `json:"muted"`
-	LaunchHelperAtStartup bool                `json:"launchHelperAtStartup"`
-	Sounds                []SoundRecord       `json:"sounds"`
-	Playlists             []PlaylistRecord    `json:"playlists"`
-	Rules                 []RuleRecord        `json:"rules"`
-	Hotkeys               HotkeySettings      `json:"hotkeys"`
-	Integrations          IntegrationSettings `json:"integrations"`
-	UpdatedAt             string              `json:"updatedAt"`
+	Version                int                 `json:"version"`
+	Listening              bool                `json:"listening"`
+	Muted                  bool                `json:"muted"`
+	EventEngineEnabled     bool                `json:"eventEngineEnabled"`
+	PlaybackEnabled        bool                `json:"playbackEnabled"`
+	StopPreviousOnNewEvent bool                `json:"stopPreviousSoundOnNewEvent"`
+	LocalEventPort         int                 `json:"localEventPort,omitempty"`
+	LaunchHelperAtStartup  bool                `json:"launchHelperAtStartup"`
+	Sounds                 []SoundRecord       `json:"sounds"`
+	Playlists              []PlaylistRecord    `json:"playlists"`
+	Rules                  []RuleRecord        `json:"rules"`
+	Hotkeys                HotkeySettings      `json:"hotkeys"`
+	Integrations           IntegrationSettings `json:"integrations"`
+	UpdatedAt              string              `json:"updatedAt"`
 }
 
 type SoundRecord struct {
@@ -108,6 +112,45 @@ type MatcherCacheCandidate struct {
 	RuleID    string `json:"ruleId"`
 	Pattern   string `json:"pattern"`
 	MatchType string `json:"matchType"`
+}
+
+type TerminalEvent struct {
+	EventType  string `json:"eventType"`
+	Command    string `json:"command,omitempty"`
+	ExitCode   *int   `json:"exitCode,omitempty"`
+	Cwd        string `json:"cwd,omitempty"`
+	Timestamp  string `json:"timestamp"`
+	DurationMs *int64 `json:"durationMs,omitempty"`
+}
+
+type RuleMatchResult struct {
+	Matched            bool          `json:"matched"`
+	Rule               *RuleRecord   `json:"rule,omitempty"`
+	Sound              *SoundRecord  `json:"sound,omitempty"`
+	SoundPath          string        `json:"soundPath,omitempty"`
+	MissingSound       bool          `json:"missingSound"`
+	PlaybackAttempted  bool          `json:"playbackAttempted"`
+	PlaybackStarted    bool          `json:"playbackStarted"`
+	PlaybackError      string        `json:"playbackError,omitempty"`
+	EventEngineEnabled bool          `json:"eventEngineEnabled"`
+	PlaybackEnabled    bool          `json:"playbackEnabled"`
+	Message            string        `json:"message"`
+	Event              TerminalEvent `json:"event"`
+}
+
+type RecentEventRecord struct {
+	ID              string        `json:"id"`
+	Event           TerminalEvent `json:"event"`
+	Matched         bool          `json:"matched"`
+	RuleID          string        `json:"ruleId,omitempty"`
+	RuleName        string        `json:"ruleName,omitempty"`
+	SoundID         string        `json:"soundId,omitempty"`
+	SoundName       string        `json:"soundName,omitempty"`
+	MissingSound    bool          `json:"missingSound"`
+	PlaybackStarted bool          `json:"playbackStarted"`
+	PlaybackError   string        `json:"playbackError,omitempty"`
+	Message         string        `json:"message"`
+	Timestamp       string        `json:"timestamp"`
 }
 
 func (a *App) LoadConfig() (ConfigSnapshot, error) {
@@ -251,9 +294,16 @@ func readConfig(path string) (AppConfig, error) {
 }
 
 func normalizeConfig(config AppConfig) AppConfig {
-	if config.Version == 0 {
-		config.Version = configVersion
+	originalVersion := config.Version
+	if originalVersion == 0 {
+		originalVersion = 1
 	}
+	if originalVersion < 2 {
+		config.EventEngineEnabled = true
+		config.PlaybackEnabled = true
+		config.StopPreviousOnNewEvent = true
+	}
+	config.Version = configVersion
 	if config.Sounds == nil {
 		config.Sounds = []SoundRecord{}
 	}
@@ -288,9 +338,12 @@ func normalizeConfig(config AppConfig) AppConfig {
 
 func defaultConfig() AppConfig {
 	return normalizeConfig(AppConfig{
-		Version:   configVersion,
-		Listening: true,
-		Muted:     false,
+		Version:                configVersion,
+		Listening:              true,
+		Muted:                  false,
+		EventEngineEnabled:     true,
+		PlaybackEnabled:        true,
+		StopPreviousOnNewEvent: true,
 		Hotkeys: HotkeySettings{
 			StopAudio:       "",
 			ToggleListening: "",
