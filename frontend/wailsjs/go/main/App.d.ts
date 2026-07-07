@@ -26,6 +26,8 @@ export function ImportSoundPaths(arg1:Array<string>):Promise<main.ConfigSnapshot
 
 export function ImportSoundWithPicker():Promise<main.ConfigSnapshot>;
 
+export function ListHandledEventLog():Promise<Array<main.RecentEventRecord>>;
+
 export function ListRecentEvents():Promise<Array<main.RecentEventRecord>>;
 
 export function ListRules():Promise<main.ConfigSnapshot>;

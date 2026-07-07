@@ -139,18 +139,21 @@ type RuleMatchResult struct {
 }
 
 type RecentEventRecord struct {
-	ID              string        `json:"id"`
-	Event           TerminalEvent `json:"event"`
-	Matched         bool          `json:"matched"`
-	RuleID          string        `json:"ruleId,omitempty"`
-	RuleName        string        `json:"ruleName,omitempty"`
-	SoundID         string        `json:"soundId,omitempty"`
-	SoundName       string        `json:"soundName,omitempty"`
-	MissingSound    bool          `json:"missingSound"`
-	PlaybackStarted bool          `json:"playbackStarted"`
-	PlaybackError   string        `json:"playbackError,omitempty"`
-	Message         string        `json:"message"`
-	Timestamp       string        `json:"timestamp"`
+	ID                 string        `json:"id"`
+	Event              TerminalEvent `json:"event"`
+	Matched            bool          `json:"matched"`
+	RuleID             string        `json:"ruleId,omitempty"`
+	RuleName           string        `json:"ruleName,omitempty"`
+	SoundID            string        `json:"soundId,omitempty"`
+	SoundName          string        `json:"soundName,omitempty"`
+	MissingSound       bool          `json:"missingSound"`
+	PlaybackAttempted  bool          `json:"playbackAttempted"`
+	PlaybackStarted    bool          `json:"playbackStarted"`
+	PlaybackSkipped    bool          `json:"playbackSkipped"`
+	PlaybackSkipReason string        `json:"playbackSkipReason,omitempty"`
+	PlaybackError      string        `json:"playbackError,omitempty"`
+	Message            string        `json:"message"`
+	Timestamp          string        `json:"timestamp"`
 }
 
 func (a *App) LoadConfig() (ConfigSnapshot, error) {

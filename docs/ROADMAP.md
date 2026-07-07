@@ -92,14 +92,14 @@ Notes:
 
 ## Phase 4 — Helper + Shell Integration
 
-Status: Phase 4.1 UX cleanup complete; shell/helper integration remains.
+Status: Phase 4.2 macOS zsh helper MVP complete; automatic install and cross-platform shell support remain.
 
 Goal: Make rules react to real terminal commands without requiring the UI to stay open.
 
 Tasks:
 
-- [ ] Create `prodtag-helper` Go process.
-- [ ] Add IPC or CLI command for sending events to helper.
+- [x] Create `prodtag-helper` Go process.
+- [x] Add CLI command for sending events to helper.
 - [x] Implement async backend playback from matched local sound files on macOS through `afplay`.
 - [x] Add local event handling API that evaluates events, starts backend playback, and records recent handled events.
 - [x] Add listening/muted/playback config handling for the backend event path.
@@ -108,8 +108,11 @@ Tasks:
 - [x] Clean up Rules information architecture before shell integration.
 - [x] Reorganize Integrations so shell setup is primary and diagnostics are secondary.
 - [x] Clarify runtime settings for listening, rule engine, muted audio, and backend playback.
+- [x] Add persistent handled-event JSONL log for helper/CLI events.
+- [x] Add manual macOS zsh integration script.
+- [x] Add manual macOS zsh setup documentation.
 - [ ] Add helper status display in Dashboard.
-- [ ] Add zsh integration first.
+- [x] Add zsh integration first.
 - [ ] Add bash integration.
 - [ ] Add PowerShell integration.
 - [ ] Generate lightweight matcher cache for shell integrations.
@@ -125,7 +128,9 @@ Notes:
 - Phase 4.0 adds the local app backend path only: `HandleTerminalEvent` evaluates a terminal event, selects the matched sound, starts backend playback when enabled, and records an in-memory recent event entry.
 - Backend playback currently supports macOS via `afplay`; Windows/Linux playback methods are structured for later implementation.
 - Phase 4.1 addressed the UX audit: Rules now keeps management primary with simulator/logs secondary, New/Edit opens in a modal, Integrations is setup-first, Settings groups runtime controls, Dashboard shows readiness, and paths are compacted.
-- Local HTTP/CLI intake was deferred to Phase 4.2. The preferred next step is a local-only CLI/helper receiver rather than exposing a remote listener.
+- Phase 4.2 added a CLI/helper-first macOS zsh MVP. The helper is built manually with `go build -tags prodtaghelper -o build/bin/prodtag-helper .`, and `scripts/prodtag.zsh` is sourced manually for the current shell session.
+- The zsh script captures command text, exit code, cwd, and duration, infers MVP event types, and calls `prodtag-helper emit` in the background.
+- Local HTTP intake is intentionally not implemented. Automatic shell file edits, one-click install/uninstall, bash/PowerShell support, and daemon/tray behavior remain deferred.
 
 ## Phase 5 — Rule Presets and Matching Polish
 

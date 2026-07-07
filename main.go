@@ -1,3 +1,5 @@
+//go:build !prodtaghelper
+
 package main
 
 import (

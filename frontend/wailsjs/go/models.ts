@@ -336,7 +336,10 @@ export namespace main {
 	    soundId?: string;
 	    soundName?: string;
 	    missingSound: boolean;
+	    playbackAttempted: boolean;
 	    playbackStarted: boolean;
+	    playbackSkipped: boolean;
+	    playbackSkipReason?: string;
 	    playbackError?: string;
 	    message: string;
 	    timestamp: string;
@@ -355,7 +358,10 @@ export namespace main {
 	        this.soundId = source["soundId"];
 	        this.soundName = source["soundName"];
 	        this.missingSound = source["missingSound"];
+	        this.playbackAttempted = source["playbackAttempted"];
 	        this.playbackStarted = source["playbackStarted"];
+	        this.playbackSkipped = source["playbackSkipped"];
+	        this.playbackSkipReason = source["playbackSkipReason"];
 	        this.playbackError = source["playbackError"];
 	        this.message = source["message"];
 	        this.timestamp = source["timestamp"];

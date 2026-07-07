@@ -76,7 +76,10 @@ export type RecentEventRecord = {
   soundId?: string;
   soundName?: string;
   missingSound: boolean;
+  playbackAttempted: boolean;
   playbackStarted: boolean;
+  playbackSkipped: boolean;
+  playbackSkipReason?: string;
   playbackError?: string;
   message: string;
   timestamp: string;

@@ -86,7 +86,7 @@ const matchModes = [
 ] as const;
 
 export function RulesPage({config, onConfigUpdated}: RulesPageProps) {
-  const [form, setForm] = useState<RuleFormState>(() => ({...emptyForm, soundId: config.sounds[0]?.id ?? ''}));
+  const [form, setForm] = useState<RuleFormState>(() => ({...emptyForm}));
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [confirmRule, setConfirmRule] = useState<RuleRecord | null>(null);
@@ -117,12 +117,6 @@ export function RulesPage({config, onConfigUpdated}: RulesPageProps) {
   }, [toast]);
 
   useEffect(() => {
-    if (!form.soundId && config.sounds[0]) {
-      setForm((current) => ({...current, soundId: config.sounds[0].id}));
-    }
-  }, [config.sounds, form.soundId]);
-
-  useEffect(() => {
     void refreshRecentEvents();
   }, []);
 
@@ -136,7 +130,7 @@ export function RulesPage({config, onConfigUpdated}: RulesPageProps) {
   }
 
   function openCreateForm() {
-    setForm({...emptyForm, soundId: config.sounds[0]?.id ?? ''});
+    setForm({...emptyForm});
     setIsFormOpen(true);
   }
 
@@ -156,7 +150,7 @@ export function RulesPage({config, onConfigUpdated}: RulesPageProps) {
 
   function closeForm() {
     setIsFormOpen(false);
-    setForm({...emptyForm, soundId: config.sounds[0]?.id ?? ''});
+    setForm({...emptyForm});
   }
 
   async function saveRule() {
@@ -533,6 +527,9 @@ function RuleForm({
             value={form.soundId}
           >
             <option value="">Choose a sound</option>
+            {form.soundId && !selectedSound && (
+              <option value={form.soundId}>Missing sound ({form.soundId})</option>
+            )}
             {sounds.map((sound) => (
               <option key={sound.id} value={sound.id}>{sound.name}</option>
             ))}
@@ -586,13 +583,13 @@ function RuleForm({
         <label className="text-sm font-semibold text-neutral-700" htmlFor="rule-enabled">Enable this rule</label>
       </div>
 
-      <SelectedSound sound={selectedSound} />
+      <SelectedSound missingSoundId={form.soundId && !selectedSound ? form.soundId : ''} sound={selectedSound} />
 
       <div className="mt-5 flex flex-wrap justify-end gap-2">
         <Button disabled={!selectedSound} isLoading={isTesting} leftIcon={<Play size={16} />} onClick={onTest} variant="success">
           Test sound
         </Button>
-        <Button isLoading={isSaving} leftIcon={<Save size={16} />} onClick={onSave}>
+        <Button disabled={!selectedSound} isLoading={isSaving} leftIcon={<Save size={16} />} onClick={onSave}>
           {form.id ? 'Save rule' : 'Create rule'}
         </Button>
       </div>
@@ -878,8 +875,16 @@ function RuleStat({label, value}: {label: string; value: number}) {
   );
 }
 
-function SelectedSound({sound}: {sound: SoundRecord | null}) {
+function SelectedSound({missingSoundId, sound}: {sound: SoundRecord | null; missingSoundId?: string}) {
   if (!sound) {
+    if (missingSoundId) {
+      return (
+        <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+          The previously assigned sound is missing. Choose another sound before saving.
+        </div>
+      );
+    }
+
     return (
       <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
         Choose a sound before saving this rule.

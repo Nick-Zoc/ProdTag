@@ -50,6 +50,10 @@ export function ImportSoundWithPicker() {
   return window['go']['main']['App']['ImportSoundWithPicker']();
 }
 
+export function ListHandledEventLog() {
+  return window['go']['main']['App']['ListHandledEventLog']();
+}
+
 export function ListRecentEvents() {
   return window['go']['main']['App']['ListRecentEvents']();
 }

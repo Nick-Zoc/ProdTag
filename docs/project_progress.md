@@ -94,6 +94,15 @@ ProdTag is a Wails v2 desktop app with a Go backend/helper direction and a React
   - Settings runtime controls are grouped by event intake, sound playback, and startup so Listening, Event engine, Muted, and Backend playback are easier to distinguish.
   - Long filesystem paths now use a compact filename/folder pattern with copy and details controls in core path-heavy areas.
   - Hotkeys now clearly presents a planned-state message instead of looking like missing user configuration.
+- Phase 4.2: macOS zsh shell integration MVP.
+  - Fixed New/Edit rule sound selection so new rules require an explicit sound choice instead of auto-selecting the first sound.
+  - Added a tagged `prodtag-helper` CLI build path with `emit`, `doctor`, and `version/help` commands.
+  - `prodtag-helper emit` loads the same app config, reuses the existing matcher and backend playback path, respects Listening/Event engine/Muted/Playback settings, and reports matched/no-match/playback status in the terminal.
+  - Added persistent handled-event JSONL logging under app data logs so helper events remain visible when the UI was closed.
+  - Integrations now reads the persistent handled-event log and shows manual macOS zsh setup commands with copy buttons.
+  - Added `scripts/prodtag.zsh`, which uses zsh hooks to capture command text, exit code, cwd, and duration, infer MVP event types, and call the helper in the background.
+  - Added `docs/SHELL_INTEGRATION_MACOS_ZSH.md` with manual build/source/test/disable/troubleshooting steps.
+  - Automatic shell install/uninstall, bash/PowerShell support, local HTTP intake, and background daemon/tray behavior remain deferred.
 
 ## Current UX Direction
 
@@ -111,8 +120,8 @@ ProdTag is a Wails v2 desktop app with a Go backend/helper direction and a React
 
 ## Next Up
 
-- Phase 4.2 helper and local shell integration intake planning.
+- Phase 4.3 automatic install/doctor checks and broader shell support planning.
 - Playlist/group assignment is still open from Phase 2 if it is needed before moving into helper playback.
-- The next technical boundary is sending real terminal events into `HandleTerminalEvent` through a local helper/CLI/shell integration.
+- The next technical boundary is making the helper/zsh setup easier to install, verify, and eventually expand to bash/PowerShell without changing shell files automatically before that phase.
 - Packaging note: the earlier Codex-side macOS `UTType` linker/package warning is considered resolved for now because the user manually ran `wails build` successfully and produced `build/bin/ProdTag.app`.
 - Codex-side `wails build` may still fail at the final macOS app compile step in this sandbox even after frontend and Go tests pass; prefer user-local manual build as the packaging truth for now.

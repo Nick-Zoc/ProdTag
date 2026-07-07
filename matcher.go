@@ -47,7 +47,9 @@ func (a *App) HandleTerminalEvent(event TerminalEvent) (RuleMatchResult, error) 
 			Message:            "Event engine is disabled",
 			Event:              event,
 		}
-		addRecentEvent(result)
+		if err := recordHandledEvent(result); err != nil {
+			return result, err
+		}
 		return result, nil
 	}
 	if !snapshot.Config.Listening {
@@ -58,7 +60,9 @@ func (a *App) HandleTerminalEvent(event TerminalEvent) (RuleMatchResult, error) 
 			Message:            "Listening is paused",
 			Event:              event,
 		}
-		addRecentEvent(result)
+		if err := recordHandledEvent(result); err != nil {
+			return result, err
+		}
 		return result, nil
 	}
 
@@ -83,7 +87,9 @@ func (a *App) HandleTerminalEvent(event TerminalEvent) (RuleMatchResult, error) 
 		}
 	}
 
-	addRecentEvent(result)
+	if err := recordHandledEvent(result); err != nil {
+		return result, err
+	}
 	return result, nil
 }
 
@@ -220,21 +226,41 @@ func normalizeTerminalEvent(event TerminalEvent) TerminalEvent {
 	return event
 }
 
-func addRecentEvent(result RuleMatchResult) {
+func recordHandledEvent(result RuleMatchResult) error {
+	record := addRecentEvent(result)
+	return appendHandledEventLog(record)
+}
+
+func addRecentEvent(result RuleMatchResult) RecentEventRecord {
+	record := newRecentEventRecord(result)
+
+	recentEvents.Lock()
+	defer recentEvents.Unlock()
+
+	recentEvents.items = append([]RecentEventRecord{record}, recentEvents.items...)
+	if len(recentEvents.items) > recentEventLimit {
+		recentEvents.items = recentEvents.items[:recentEventLimit]
+	}
+
+	return record
+}
+
+func newRecentEventRecord(result RuleMatchResult) RecentEventRecord {
 	id, err := newSoundID()
 	if err != nil {
 		id = fmt.Sprintf("event-%d", time.Now().UnixNano())
 	}
 
 	record := RecentEventRecord{
-		ID:              id,
-		Event:           result.Event,
-		Matched:         result.Matched,
-		MissingSound:    result.MissingSound,
-		PlaybackStarted: result.PlaybackStarted,
-		PlaybackError:   result.PlaybackError,
-		Message:         result.Message,
-		Timestamp:       time.Now().UTC().Format(time.RFC3339),
+		ID:                id,
+		Event:             result.Event,
+		Matched:           result.Matched,
+		MissingSound:      result.MissingSound,
+		PlaybackAttempted: result.PlaybackAttempted,
+		PlaybackStarted:   result.PlaybackStarted,
+		PlaybackError:     result.PlaybackError,
+		Message:           result.Message,
+		Timestamp:         time.Now().UTC().Format(time.RFC3339),
 	}
 	if result.Rule != nil {
 		record.RuleID = result.Rule.ID
@@ -245,11 +271,10 @@ func addRecentEvent(result RuleMatchResult) {
 		record.SoundName = result.Sound.Name
 	}
 
-	recentEvents.Lock()
-	defer recentEvents.Unlock()
-
-	recentEvents.items = append([]RecentEventRecord{record}, recentEvents.items...)
-	if len(recentEvents.items) > recentEventLimit {
-		recentEvents.items = recentEvents.items[:recentEventLimit]
+	if !record.PlaybackStarted && record.PlaybackError == "" {
+		record.PlaybackSkipped = true
+		record.PlaybackSkipReason = result.Message
 	}
+
+	return record
 }
