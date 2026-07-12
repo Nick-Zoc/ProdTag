@@ -1,7 +1,7 @@
 import {useEffect, useMemo, useState} from 'react';
 import {Gauge, Keyboard, Music2, Plug, Settings, SlidersHorizontal} from 'lucide-react';
 import {LoadConfig, SaveConfig} from '../wailsjs/go/main/App';
-import {main as wailsModels} from '../wailsjs/go/models';
+import {core as wailsModels} from '../wailsjs/go/models';
 import {PageHeader} from './components/PageHeader';
 import {Sidebar} from './components/Sidebar';
 import {LoadingState} from './components/LoadingState';

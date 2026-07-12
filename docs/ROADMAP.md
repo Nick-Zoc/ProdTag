@@ -77,7 +77,7 @@ Tasks:
 - [x] Show missing sound state when a referenced sound is deleted.
 - [x] Add backend rule CRUD methods and config persistence tests.
 - [x] Add internal rule matcher and in-app event simulator.
-- [ ] Generate lightweight matcher cache for shell integrations.
+- [x] Generate lightweight matcher cache for shell integrations.
 
 Done when:
 
@@ -92,7 +92,7 @@ Notes:
 
 ## Phase 4 — Helper + Shell Integration
 
-Status: Phase 4.2 macOS zsh helper MVP complete; automatic install and cross-platform shell support remain.
+Status: Phase 4.4 cross-platform runtime foundation complete; real Windows/Linux runtime QA and packaged assets remain.
 
 Goal: Make rules react to real terminal commands without requiring the UI to stay open.
 
@@ -113,11 +113,11 @@ Tasks:
 - [x] Add manual macOS zsh setup documentation.
 - [ ] Add helper status display in Dashboard.
 - [x] Add zsh integration first.
-- [ ] Add bash integration.
-- [ ] Add PowerShell integration.
-- [ ] Generate lightweight matcher cache for shell integrations.
-- [ ] Add install/uninstall buttons in Integrations page.
-- [ ] Add doctor checks for installed shell integrations.
+- [x] Add bash integration.
+- [x] Add PowerShell integration.
+- [x] Generate lightweight matcher cache for shell integrations.
+- [x] Add install/uninstall buttons in Integrations page.
+- [x] Add doctor checks for installed shell integrations.
 
 Done when:
 
@@ -126,11 +126,19 @@ Done when:
 Notes:
 
 - Phase 4.0 adds the local app backend path only: `HandleTerminalEvent` evaluates a terminal event, selects the matched sound, starts backend playback when enabled, and records an in-memory recent event entry.
-- Backend playback currently supports macOS via `afplay`; Windows/Linux playback methods are structured for later implementation.
+- Phase 4.0 initially supported macOS through `afplay`; Phase 4.4 added Windows/Linux playback selection.
 - Phase 4.1 addressed the UX audit: Rules now keeps management primary with simulator/logs secondary, New/Edit opens in a modal, Integrations is setup-first, Settings groups runtime controls, Dashboard shows readiness, and paths are compacted.
 - Phase 4.2 added a CLI/helper-first macOS zsh MVP. The helper is built manually with `go build -tags prodtaghelper -o build/bin/prodtag-helper .`, and `scripts/prodtag.zsh` is sourced manually for the current shell session.
 - The zsh script captures command text, exit code, cwd, and duration, infers MVP event types, and calls `prodtag-helper emit` in the background.
-- Local HTTP intake is intentionally not implemented. Automatic shell file edits, one-click install/uninstall, bash/PowerShell support, and daemon/tray behavior remain deferred.
+- Phase 4.3 made helper invocation silent, added debug logging and matcher-cache prefiltering, capped event logs, and added explicit safe zsh install/uninstall plus structured doctor UI.
+- Persistent installation uses stable app-data paths and an idempotent backed-up `.zshrc` marker block. Current terminals still require the copyable source command.
+- Phase 4.3 retained the tagged root helper build; Phase 4.4 replaced it with a normal shared-core CLI entrypoint. Release packaging must still bundle helper/script assets instead of building from a source checkout.
+- Local HTTP intake, package-manager execution, login startup, and daemon/tray behavior remain deferred.
+- Phase 4.4 moved shared runtime behavior into importable internal packages and replaced the custom build-tag helper with `go build -o build/bin/prodtag-helper ./cmd/prodtag-helper`.
+- Backend playback now selects `afplay` on macOS, PowerShell SoundPlayer on Windows, and `paplay`, `aplay`, or `ffplay` on Linux, with structured alternatives and install guidance.
+- Bash and PowerShell integrations now share cache semantics and safe explicit profile install/uninstall behavior with zsh. Real Windows/Linux runtime QA remains required.
+- Event logs use portable lock-file coordination and retain 500 complete records; malformed partial lines are ignored on read.
+- Future UI backlog: first-run setup wizard, simpler Dashboard after onboarding, compact/collapsible rule cards, and a final cross-page consistency pass.
 
 ## Phase 5 — Rule Presets and Matching Polish
 

@@ -103,6 +103,27 @@ ProdTag is a Wails v2 desktop app with a Go backend/helper direction and a React
   - Added `scripts/prodtag.zsh`, which uses zsh hooks to capture command text, exit code, cwd, and duration, infer MVP event types, and call the helper in the background.
   - Added `docs/SHELL_INTEGRATION_MACOS_ZSH.md` with manual build/source/test/disable/troubleshooting steps.
   - Automatic shell install/uninstall, bash/PowerShell support, local HTTP intake, and background daemon/tray behavior remain deferred.
+- Phase 4.3: macOS zsh integration hardening and install UX.
+  - zsh helper launches are now silent and detached with `&!`; normal output is redirected and the completed command exit code is preserved.
+  - `PRODTAG_ZSH_DEBUG=1` writes hook decisions and helper output to a dedicated debug log without restoring job-control noise.
+  - The shell hook ignores helper/integration commands and uses a lightweight matcher cache to skip helper launches when no enabled event type can match.
+  - Config saves now regenerate a versioned `matcher-cache.json` containing enabled event types and lightweight command match hints without sound metadata.
+  - Added explicit macOS zsh install/uninstall APIs, stable app-data helper/script paths, idempotent `.zshrc` markers, first-modification backup, and partial-marker protection.
+  - Integrations now shows helper/script/zshrc state, persistent install/uninstall, structured doctor results, and copyable current-session enable/disable commands.
+  - Doctor now checks platform, zsh, installed files, executable state, `.zshrc`, config/cache, runtime controls, rule count, and playback method.
+  - Handled-event JSONL retention is capped at the newest 500 records while the UI continues showing the newest 50.
+  - The tagged root helper build remains for now; a normal `cmd/` move would require a broader shared-package extraction and is deferred until cross-platform work justifies it.
+  - Development installation builds/copies assets from the checkout; packaged releases still need bundled helper/script resources.
+- Phase 4.4: cross-platform runtime foundation and shell expansion.
+  - Extracted config storage, matcher/cache, event inference, playback, event handling, and locked JSONL logging into shared `internal/core` packages used by Wails and the CLI.
+  - Replaced the tagged root helper with the normal `cmd/prodtag-helper` entrypoint and build command.
+  - Added asynchronous playback selection for macOS `afplay`, Windows PowerShell SoundPlayer, and Linux `paplay`/`aplay`/`ffplay`, with stop support and dependency suggestions.
+  - Added portable lock-file coordination plus atomic append/cap handling for concurrent helper event-log writers.
+  - Hardened zsh debug output so cache-skipped events create a predictable capped diagnostic log with the full launch decision.
+  - Added Bash and PowerShell scripts with conservative matcher-cache filtering, recursion protection, session/debug controls, and preserved profile/prompt behavior.
+  - Added safe explicit install/uninstall and status/doctor support for zsh, Bash, and PowerShell profiles.
+  - Integrations now shows platform-relevant shell cards, helper/script/profile state, per-shell actions, debug commands, playback alternatives, and dependency guidance.
+  - Windows/Linux helper builds are compile-validated; playback and shell behavior still require real platform testing.
 
 ## Current UX Direction
 
@@ -120,8 +141,9 @@ ProdTag is a Wails v2 desktop app with a Go backend/helper direction and a React
 
 ## Next Up
 
-- Phase 4.3 automatic install/doctor checks and broader shell support planning.
+- Phase 5 rule presets and matching polish; background lifecycle, hotkeys, and startup remain Phase 6 work.
+- Future UI backlog: first-run setup wizard, simpler post-onboarding Dashboard, compact/collapsible rule cards, and final cross-page visual consistency pass.
 - Playlist/group assignment is still open from Phase 2 if it is needed before moving into helper playback.
-- The next technical boundary is making the helper/zsh setup easier to install, verify, and eventually expand to bash/PowerShell without changing shell files automatically before that phase.
+- Release packaging must bundle prebuilt platform helpers and integration scripts; development installs still build/copy from the checkout.
 - Packaging note: the earlier Codex-side macOS `UTType` linker/package warning is considered resolved for now because the user manually ran `wails build` successfully and produced `build/bin/ProdTag.app`.
 - Codex-side `wails build` may still fail at the final macOS app compile step in this sandbox even after frontend and Go tests pass; prefer user-local manual build as the packaging truth for now.

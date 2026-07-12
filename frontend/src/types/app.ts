@@ -91,7 +91,11 @@ export type PlaybackStatus = {
   method: string;
   playing: boolean;
   message: string;
+  alternatives: string[];
+  suggestions: DependencySuggestion[];
 };
+
+export type DependencySuggestion = {platform: string; label: string; command?: string; detail: string};
 
 export type ShellIntegrationState = {
   installed: boolean;
@@ -133,6 +137,54 @@ export type AppDataPaths = {
   originalSoundsDir: string;
   processedSoundsDir: string;
   logsDir: string;
+  binDir: string;
+  integrationsDir: string;
+  helperBinary: string;
+  zshScript: string;
+  bashScript: string;
+  powerShellScript: string;
+};
+
+export type CheckResult = {ok: boolean; label: string; detail: string; path?: string};
+
+export type IntegrationStatus = {
+  shell: string;
+  displayName: string;
+  supported: boolean;
+  platformRelevant: boolean;
+  shellExecutableFound: boolean;
+  shellExecutable?: string;
+  helperInstalled: boolean;
+  helperExecutable: boolean;
+  scriptInstalled: boolean;
+  profileConfigured: boolean;
+  profileState: string;
+  profilePath?: string;
+  helperPath: string;
+  scriptPath: string;
+  matcherCachePath: string;
+  currentSessionCommand: string;
+  disableSessionCommand: string;
+  debugEnableCommand: string;
+  debugDisableCommand: string;
+  debugLogCommand: string;
+  problems: string[];
+  warnings: string[];
+  checks: CheckResult[];
+};
+
+export type DoctorResult = {
+  ok: boolean;
+  platform: string;
+  configPath: string;
+  matcherCacheValid: boolean;
+  ruleCount: number;
+  listening: boolean;
+  eventEngineEnabled: boolean;
+  muted: boolean;
+  playbackEnabled: boolean;
+  playback: PlaybackStatus;
+  integrations: IntegrationStatus[];
 };
 
 export type ConfigSnapshot = {

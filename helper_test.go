@@ -2,11 +2,158 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestMatcherCacheUpdatesAfterRuleMutations(t *testing.T) {
+	isolateUserDirs(t)
+	app := NewApp()
+	sound := importTestSound(t, "cache.wav")
+	created := createTestRule(t, app, RuleRequest{Name: "Tests", Enabled: true, EventType: "test_success", SoundID: sound.ID, MatchMode: "contains", CommandPattern: "npm test"})
+
+	cache := loadTestMatcherCache(t)
+	if len(cache.EnabledEventTypes) != 1 || cache.EnabledEventTypes[0] != "test_success" || len(cache.Candidates) != 1 {
+		t.Fatalf("unexpected created cache: %+v", cache)
+	}
+	if cache.Candidates[0].RuleID != created.ID || cache.Candidates[0].Pattern != "npm test" {
+		t.Fatalf("unexpected cache candidate: %+v", cache.Candidates[0])
+	}
+
+	if _, err := app.ToggleRule(created.ID, false); err != nil {
+		t.Fatalf("ToggleRule() error = %v", err)
+	}
+	cache = loadTestMatcherCache(t)
+	if len(cache.EnabledEventTypes) != 0 || len(cache.Candidates) != 0 {
+		t.Fatalf("disabled rule remained in cache: %+v", cache)
+	}
+
+	if _, err := app.ToggleRule(created.ID, true); err != nil {
+		t.Fatalf("ToggleRule() error = %v", err)
+	}
+	if _, err := app.DeleteRule(created.ID); err != nil {
+		t.Fatalf("DeleteRule() error = %v", err)
+	}
+	cache = loadTestMatcherCache(t)
+	if len(cache.EnabledEventTypes) != 0 || len(cache.Candidates) != 0 {
+		t.Fatalf("deleted rule remained in cache: %+v", cache)
+	}
+}
+
+func TestZshrcInstallIsIdempotentAndRemovalPreservesContent(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".zshrc")
+	original := "export EDITOR=vim\nalias ll='ls -la'\n"
+	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	block := zshMarkerStart + "\nsource '/tmp/prodtag.zsh'\n" + zshMarkerEnd
+	if err := installZshrcBlock(path, block); err != nil {
+		t.Fatalf("installZshrcBlock() error = %v", err)
+	}
+	if err := installZshrcBlock(path, block); err != nil {
+		t.Fatalf("second installZshrcBlock() error = %v", err)
+	}
+	data, _ := os.ReadFile(path)
+	if strings.Count(string(data), zshMarkerStart) != 1 {
+		t.Fatalf("marker duplicated: %s", data)
+	}
+	backups, _ := filepath.Glob(path + ".prodtag-backup*")
+	if len(backups) != 1 {
+		t.Fatalf("expected one first-modification backup, got %d", len(backups))
+	}
+	if err := removeZshrcBlock(path); err != nil {
+		t.Fatalf("removeZshrcBlock() error = %v", err)
+	}
+	data, _ = os.ReadFile(path)
+	if string(data) != original {
+		t.Fatalf("unrelated zshrc content changed: %q", data)
+	}
+}
+
+func TestZshrcPartialMarkerIsDetectedAndRefused(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".zshrc")
+	if err := os.WriteFile(path, []byte("alias gs='git status'\n"+zshMarkerStart+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := detectZshrcMarkerState(path); got != "partial" {
+		t.Fatalf("state = %q, want partial", got)
+	}
+	if err := installZshrcBlock(path, zshMarkerStart+"\n"+zshMarkerEnd); err == nil {
+		t.Fatal("expected partial marker install refusal")
+	}
+	if err := removeZshrcBlock(path); err == nil {
+		t.Fatal("expected partial marker removal refusal")
+	}
+}
+
+func TestZshIntegrationStatusDetectsInstalledFiles(t *testing.T) {
+	isolateUserDirs(t)
+	if err := EnsureAppData(); err != nil {
+		t.Fatal(err)
+	}
+	paths, _ := GetAppDataPaths()
+	if err := os.WriteFile(paths.HelperBinary, []byte("helper"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(paths.ZshScript, []byte("# script"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	zshrc := filepath.Join(os.Getenv("HOME"), ".zshrc")
+	block := zshMarkerStart + "\nsource '" + paths.ZshScript + "'\n" + zshMarkerEnd
+	if err := os.WriteFile(zshrc, []byte(block+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	status, err := getZshIntegrationStatus()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !status.HelperInstalled || !status.HelperExecutable || !status.ScriptInstalled || status.ProfileState != "configured" {
+		t.Fatalf("unexpected status: %+v", status)
+	}
+}
+
+func TestHandledEventLogRetention(t *testing.T) {
+	isolateUserDirs(t)
+	for index := 0; index < handledEventLogMaxLines+25; index++ {
+		record := RecentEventRecord{ID: fmt.Sprintf("event-%d", index), Timestamp: "2026-01-01T00:00:00Z"}
+		if err := appendHandledEventLog(record); err != nil {
+			t.Fatalf("appendHandledEventLog() error = %v", err)
+		}
+	}
+	path, _ := handledEventLogPath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != handledEventLogMaxLines {
+		t.Fatalf("retained lines = %d, want %d", len(lines), handledEventLogMaxLines)
+	}
+	var first RecentEventRecord
+	if err := json.Unmarshal([]byte(lines[0]), &first); err != nil {
+		t.Fatal(err)
+	}
+	if first.ID != "event-25" {
+		t.Fatalf("oldest retained ID = %q, want event-25", first.ID)
+	}
+}
+
+func loadTestMatcherCache(t *testing.T) MatcherCache {
+	t.Helper()
+	paths, err := GetAppDataPaths()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cache, err := readMatcherCache(paths.MatcherCacheFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cache
+}
 
 func TestRunHelperEmitMatchesAndLogsWithoutRealPlayback(t *testing.T) {
 	isolateUserDirs(t)

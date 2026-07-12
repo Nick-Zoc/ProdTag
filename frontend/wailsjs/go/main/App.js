@@ -50,8 +50,20 @@ export function ImportSoundWithPicker() {
   return window['go']['main']['App']['ImportSoundWithPicker']();
 }
 
+export function InstallShellIntegration(arg1) {
+  return window['go']['main']['App']['InstallShellIntegration'](arg1);
+}
+
+export function InstallZshIntegration() {
+  return window['go']['main']['App']['InstallZshIntegration']();
+}
+
 export function ListHandledEventLog() {
   return window['go']['main']['App']['ListHandledEventLog']();
+}
+
+export function ListIntegrationStatuses() {
+  return window['go']['main']['App']['ListIntegrationStatuses']();
 }
 
 export function ListRecentEvents() {
@@ -82,6 +94,10 @@ export function RenameSound(arg1) {
   return window['go']['main']['App']['RenameSound'](arg1);
 }
 
+export function RunIntegrationDoctor() {
+  return window['go']['main']['App']['RunIntegrationDoctor']();
+}
+
 export function SaveConfig(arg1) {
   return window['go']['main']['App']['SaveConfig'](arg1);
 }
@@ -104,6 +120,14 @@ export function TestRuleSound(arg1) {
 
 export function ToggleRule(arg1, arg2) {
   return window['go']['main']['App']['ToggleRule'](arg1, arg2);
+}
+
+export function UninstallShellIntegration(arg1) {
+  return window['go']['main']['App']['UninstallShellIntegration'](arg1);
+}
+
+export function UninstallZshIntegration() {
+  return window['go']['main']['App']['UninstallZshIntegration']();
 }
 
 export function UpdateRule(arg1) {
