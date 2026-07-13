@@ -1,14 +1,14 @@
 export namespace core {
-
+	
 	export class ShellIntegrationState {
 	    installed: boolean;
 	    scope: string;
 	    lastCheck: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new ShellIntegrationState(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.installed = source["installed"];
@@ -20,18 +20,18 @@ export namespace core {
 	    zsh: ShellIntegrationState;
 	    bash: ShellIntegrationState;
 	    powerShell: ShellIntegrationState;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new IntegrationSettings(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.zsh = this.convertValues(source["zsh"], ShellIntegrationState);
 	        this.bash = this.convertValues(source["bash"], ShellIntegrationState);
 	        this.powerShell = this.convertValues(source["powerShell"], ShellIntegrationState);
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -55,11 +55,11 @@ export namespace core {
 	    toggleListening: string;
 	    toggleMute: string;
 	    openApp: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new HotkeySettings(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.stopAudio = source["stopAudio"];
@@ -82,11 +82,11 @@ export namespace core {
 	    playlistId?: string;
 	    cooldownMs?: number;
 	    probability?: number;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new RuleRecord(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -108,11 +108,11 @@ export namespace core {
 	    id: string;
 	    name: string;
 	    soundIds: string[];
-
+	
 	    static createFrom(source: any = {}) {
 	        return new PlaylistRecord(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -130,11 +130,11 @@ export namespace core {
 	    createdAt: string;
 	    status: string;
 	    error?: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new SoundRecord(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -163,11 +163,11 @@ export namespace core {
 	    hotkeys: HotkeySettings;
 	    integrations: IntegrationSettings;
 	    updatedAt: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new AppConfig(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.version = source["version"];
@@ -185,7 +185,7 @@ export namespace core {
 	        this.integrations = this.convertValues(source["integrations"], IntegrationSettings);
 	        this.updatedAt = source["updatedAt"];
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -218,11 +218,11 @@ export namespace core {
 	    zshScript: string;
 	    bashScript: string;
 	    powerShellScript: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new AppDataPaths(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.configDir = source["configDir"];
@@ -243,17 +243,17 @@ export namespace core {
 	export class ConfigSnapshot {
 	    config: AppConfig;
 	    paths: AppDataPaths;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new ConfigSnapshot(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.config = this.convertValues(source["config"], AppConfig);
 	        this.paths = this.convertValues(source["paths"], AppDataPaths);
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -277,11 +277,11 @@ export namespace core {
 	    label: string;
 	    command?: string;
 	    detail: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new DependencySuggestion(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.platform = source["platform"];
@@ -290,8 +290,8 @@ export namespace core {
 	        this.detail = source["detail"];
 	    }
 	}
-
-
+	
+	
 	export class PlaybackStatus {
 	    supported: boolean;
 	    platform: string;
@@ -300,11 +300,11 @@ export namespace core {
 	    message: string;
 	    alternatives: string[];
 	    suggestions: DependencySuggestion[];
-
+	
 	    static createFrom(source: any = {}) {
 	        return new PlaybackStatus(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.supported = source["supported"];
@@ -315,7 +315,7 @@ export namespace core {
 	        this.alternatives = source["alternatives"];
 	        this.suggestions = this.convertValues(source["suggestions"], DependencySuggestion);
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -334,7 +334,7 @@ export namespace core {
 		    return a;
 		}
 	}
-
+	
 	export class TerminalEvent {
 	    eventType: string;
 	    command?: string;
@@ -342,11 +342,11 @@ export namespace core {
 	    cwd?: string;
 	    timestamp: string;
 	    durationMs?: number;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new TerminalEvent(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.eventType = source["eventType"];
@@ -373,11 +373,11 @@ export namespace core {
 	    playbackError?: string;
 	    message: string;
 	    timestamp: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new RecentEventRecord(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -396,7 +396,7 @@ export namespace core {
 	        this.message = source["message"];
 	        this.timestamp = source["timestamp"];
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -428,11 +428,11 @@ export namespace core {
 	    playbackEnabled: boolean;
 	    message: string;
 	    event: TerminalEvent;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new RuleMatchResult(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.matched = source["matched"];
@@ -448,7 +448,7 @@ export namespace core {
 	        this.message = source["message"];
 	        this.event = this.convertValues(source["event"], TerminalEvent);
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -467,24 +467,24 @@ export namespace core {
 		    return a;
 		}
 	}
-
-
-
+	
+	
+	
 
 }
 
 export namespace integrations {
-
+	
 	export class CheckResult {
 	    ok: boolean;
 	    label: string;
 	    detail: string;
 	    path?: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new CheckResult(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.ok = source["ok"];
@@ -517,11 +517,11 @@ export namespace integrations {
 	    problems: string[];
 	    warnings: string[];
 	    checks: CheckResult[];
-
+	
 	    static createFrom(source: any = {}) {
 	        return new IntegrationStatus(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.shell = source["shell"];
@@ -548,7 +548,7 @@ export namespace integrations {
 	        this.warnings = source["warnings"];
 	        this.checks = this.convertValues(source["checks"], CheckResult);
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -579,11 +579,11 @@ export namespace integrations {
 	    playbackEnabled: boolean;
 	    playback: core.PlaybackStatus;
 	    integrations: IntegrationStatus[];
-
+	
 	    static createFrom(source: any = {}) {
 	        return new DoctorResult(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.ok = source["ok"];
@@ -598,7 +598,7 @@ export namespace integrations {
 	        this.playback = this.convertValues(source["playback"], core.PlaybackStatus);
 	        this.integrations = this.convertValues(source["integrations"], IntegrationStatus);
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -621,7 +621,7 @@ export namespace integrations {
 }
 
 export namespace main {
-
+	
 	export class AudioToolsStatus {
 	    ffmpegAvailable: boolean;
 	    ffprobeAvailable: boolean;
@@ -629,11 +629,11 @@ export namespace main {
 	    ffprobePath: string;
 	    message: string;
 	    error?: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new AudioToolsStatus(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.ffmpegAvailable = source["ffmpegAvailable"];
@@ -647,11 +647,11 @@ export namespace main {
 	export class RenameSoundRequest {
 	    id: string;
 	    name: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new RenameSoundRequest(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -667,11 +667,11 @@ export namespace main {
 	    matchMode: string;
 	    commandPattern: string;
 	    exitCode?: number;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new RuleRequest(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
